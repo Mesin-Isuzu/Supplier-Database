@@ -1,0 +1,18 @@
+# Dependency directories
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+
+# Environment files (jangan commit kredensial!)
+.env
+.env.local
+.env.*.local
+
+# Log files
+*.log

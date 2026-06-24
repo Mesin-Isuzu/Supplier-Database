@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supplier Database - Mesin Isuzu Indonesia</title>
+  <meta name="description" content="Supplier database management system for Mesin Isuzu Indonesia.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://ecfceqvmvatpxqenqtgs.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjZmNlcXZtdmF0cHhxZW5xdGdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyNjQyNjUsImV4cCI6MjA5Nzg0MDI2NX0.o5r0-lCFv0sYZdjxmNpHO_ClHlY9pLWVUTgKxZM0RUg';
+    var supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @font-face {
+      font-family: 'Usuzi';
+      src: url('https://db.onlinewebfonts.com/t/006e5bd249bbdd29033a593bd1642e14.woff2') format('woff2'),
+           url('https://db.onlinewebfonts.com/t/006e5bd249bbdd29033a593bd1642e14.woff') format('woff'),
+           url('https://db.onlinewebfonts.com/t/006e5bd249bbdd29033a593bd1642e14.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+    * { font-family: 'Inter', sans-serif; }
+    .modal-overlay { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+    .fade-in { animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    .slide-up { animation: slideUp 0.25s ease-out; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+    .product-tag { display: inline-flex; align-items: center; background: #e0e7ff; color: #3730a3; border-radius: 9999px; padding: 2px 10px; font-size: 0.75rem; margin: 2px; }
+    .category-badge { display: inline-block; border-radius: 9999px; padding: 2px 10px; font-size: 0.7rem; font-weight: 500; margin: 1px; }
+    .table-row-hover:hover { background: #f8fafc; }
+    .sort-icon { opacity: 0.3; margin-left: 4px; font-size: 0.7rem; }
+    .sort-icon.active { opacity: 1; color: #4f46e5; }
+    .pagination-btn { padding: 6px 12px; border: 1px solid #e2e8f0; background: white; cursor: pointer; font-size: 0.85rem; transition: all 0.15s; }
+    .pagination-btn:hover:not(:disabled) { background: #eef2ff; border-color: #a5b4fc; }
+    .pagination-btn.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+    .pagination-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .empty-state { text-align: center; padding: 48px 16px; color: #94a3b8; }
+    .empty-state i { font-size: 3rem; margin-bottom: 12px; }
+    .thumb-hover-wrap { position: relative; display: inline-block; }
+    .map-embed iframe { width: 100%; height: 200px; border: 0; border-radius: 8px; }
+    @media (max-width: 768px) { .table-wrap { overflow-x: auto; } }
+    .login-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .app-content { display: none; }
+    .app-content.active { display: block; }
+    .login-page.active { display: flex; }
+    /* Loading spinner overlay */
+    #loadingOverlay { position:fixed;inset:0;background:rgba(255,255,255,0.8);z-index:9998;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px); }
+    .spinner { width:40px;height:40px;border:4px solid #e0e7ff;border-top-color:#4f46e5;border-radius:50%;animation:spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay"><div class="spinner"></div></div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Login Page -->
+  <div id="loginPage" class="login-page hidden fixed inset-0 z-50 items-center justify-center login-bg">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 mx-4 fade-in">
+      <div class="text-center mb-6">
+        <div class="mx-auto mb-4 flex items-center justify-center">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Isuzu_logo.png" alt="Isuzu Logo" class="h-14 mx-auto" style="filter: invert(16%) sepia(100%) saturate(7414%) hue-rotate(355deg) brightness(94%) contrast(108%);">
+        </div>
+        <h1 class="text-lg font-bold text-gray-900" style="font-family: 'Usuzi', sans-serif; letter-spacing: 1.5px;">Mesin Isuzu Indonesia</h1>
+        <p class="text-sm text-gray-500 mt-1">Sign in to your account</p>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <input type="email" id="loginUsername" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none" placeholder="Enter email" onkeydown="if(event.key==='Enter')handleLogin()">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <input type="password" id="loginPassword" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none" placeholder="Enter password" onkeydown="if(event.key==='Enter')handleLogin()">
+        </div>
+        <div id="loginError" class="text-red-600 text-sm hidden"></div>
+        <button id="loginBtn" onclick="handleLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-medium transition shadow-sm">
+          <i class="fas fa-sign-in-alt mr-2"></i>Sign In
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="appContent" class="app-content">
+    <nav class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center gap-3">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Isuzu_logo.png" alt="Isuzu Logo" class="h-7" style="filter: invert(16%) sepia(100%) saturate(7414%) hue-rotate(355deg) brightness(94%) contrast(108%);">
+            <span class="text-lg font-bold text-gray-900" style="font-family: 'Usuzi', sans-serif; letter-spacing: 1px;">Mesin Isuzu Indonesia</span>
+          </div>
+          <div id="navRight" class="flex items-center gap-3">
+            <span id="navUsername" class="text-sm font-medium text-gray-700 hidden"></span>
+            <span id="navRole" class="text-xs px-2 py-0.5 rounded-full hidden"></span>
+            <button onclick="handleLogout()" class="text-sm text-gray-500 hover:text-red-600 transition" id="logoutBtn"><i class="fas fa-sign-out-alt mr-1"></i>Logout</button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <!-- Stats -->
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6" id="statsGrid">
+        <div class="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3 shadow-sm">
+          <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600"><i class="fas fa-building"></i></div>
+          <div><div class="text-2xl font-bold" id="statTotal">0</div><div class="text-xs text-gray-500">Total Suppliers</div></div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3 shadow-sm">
+          <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-green-600"><i class="fas fa-check-circle"></i></div>
+          <div><div class="text-2xl font-bold" id="statActive">0</div><div class="text-xs text-gray-500">Active</div></div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3 shadow-sm">
+          <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600"><i class="fas fa-tags"></i></div>
+          <div><div class="text-2xl font-bold" id="statCategories">0</div><div class="text-xs text-gray-500">Categories</div></div>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="bg-white rounded-xl border border-gray-200 p-4 mb-6 shadow-sm">
+        <div class="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
+          <div class="flex flex-wrap items-center gap-3 flex-1">
+            <div class="relative flex-1 min-w-[200px] max-w-md">
+              <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+              <input type="text" id="searchInput" placeholder="Search suppliers..." class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none" oninput="onSearch()">
+            </div>
+            <select id="filterStatus" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" onchange="onSearch()">
+              <option value="">All Status</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+            <select id="filterCategory" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" onchange="onSearch()">
+              <option value="">All Categories</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <input type="file" id="importFile" accept=".csv,.xls,.xlsx" style="display:none" onchange="handleImport(this)">
+            <button onclick="document.getElementById('importFile').click()" id="importBtn" class="hidden border border-green-300 hover:bg-green-50 text-green-600 px-3 py-2 rounded-lg text-sm transition"><i class="fas fa-file-import mr-1"></i>Import</button>
+            <button onclick="downloadTemplate()" id="templateBtn" class="border border-gray-300 hover:bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm transition"><i class="fas fa-download mr-1"></i>Template</button>
+            <button onclick="exportCSV()" class="border border-gray-300 hover:bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm transition"><i class="fas fa-file-csv mr-1"></i>CSV</button>
+            <button onclick="openManageUsers()" id="manageUsersBtn" class="hidden border border-purple-300 hover:bg-purple-50 text-purple-600 px-3 py-2 rounded-lg text-sm transition"><i class="fas fa-users-cog mr-1"></i>Users</button>
+            <button onclick="openManageCategories()" id="manageCategoriesBtn" class="hidden border border-orange-300 hover:bg-orange-50 text-orange-600 px-3 py-2 rounded-lg text-sm transition"><i class="fas fa-tags mr-1"></i>Categories</button>
+            <button onclick="openAddModal()" id="addSupplierBtn" class="hidden bg-[#DA251C] hover:bg-[#B71C1C] text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"><i class="fas fa-plus mr-1"></i>Add Supplier</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="table-wrap">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 cursor-pointer select-none" onclick="sortBy('company_name')">Company <i class="fas fa-sort sort-icon" id="sort-company_name"></i></th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 cursor-pointer select-none" onclick="sortBy('contact_person')">Contact <i class="fas fa-sort sort-icon" id="sort-contact_person"></i></th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600 cursor-pointer select-none" onclick="sortBy('phone')">Phone <i class="fas fa-sort sort-icon" id="sort-phone"></i></th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600">Categories</th>
+                <th class="text-left px-4 py-3 font-semibold text-gray-600">Products</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-600 cursor-pointer select-none" onclick="sortBy('status')">Status <i class="fas fa-sort sort-icon" id="sort-status"></i></th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-600">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="empty-state hidden">
+          <i class="fas fa-box-open"></i>
+          <h3 class="text-lg font-semibold text-gray-500 mt-2">No suppliers found</h3>
+          <p class="text-sm mt-1">Try adjusting your search or filters, or add a new supplier.</p>
+        </div>
+        <div class="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50" id="paginationBar">
+          <span class="text-sm text-gray-500" id="paginationInfo">Showing 0 of 0</span>
+          <div class="flex gap-1" id="paginationButtons"></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /appContent -->
+
+  <!-- Add/Edit Supplier Modal -->
+  <div id="addEditModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-auto fade-in" style="resize:horizontal;min-width:480px">
+      <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+        <h2 class="text-lg font-bold" id="modalTitle">Add Supplier</h2>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-xl"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="p-6 space-y-4">
+        <input type="hidden" id="editId">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Company Name <span class="text-red-500">*</span></label><input type="text" id="fCompanyName" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none"></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Contact Person <span class="text-red-500">*</span></label><input type="text" id="fContactPerson" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none"></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Phone <span class="text-red-500">*</span></label><input type="text" id="fPhone" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none"></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Email</label><input type="email" id="fEmail" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none"></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Website</label><input type="url" id="fWebsite" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none" placeholder="https://"></div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Address</label><input type="text" id="fAddress" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none"></div>
+        </div>
+        <div><label class="block text-sm font-medium text-gray-700 mb-1">Google Maps URL</label><input type="url" id="fLocation" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none" placeholder="https://maps.google.com/?q=..."></div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Products</label>
+          <div class="table-wrap overflow-x-auto border border-gray-200 rounded-lg">
+            <table class="w-full text-sm">
+              <thead><tr class="bg-gray-50 border-b border-gray-200">
+                <th class="text-left px-2 py-2 font-semibold text-gray-600">Product Name</th>
+                <th class="text-left px-2 py-2 font-semibold text-gray-600" style="width:160px">Category</th>
+                <th class="text-left px-2 py-2 font-semibold text-gray-600" style="width:130px">Image URL</th>
+                <th class="text-center px-2 py-2 font-semibold text-gray-600" style="width:56px">Preview</th>
+                <th class="text-center px-2 py-2 font-semibold text-gray-600" style="width:36px"></th>
+              </tr></thead>
+              <tbody id="productsList"></tbody>
+            </table>
+          </div>
+          <button type="button" onclick="addProductField()" class="mt-2 text-sm text-indigo-600 hover:text-indigo-800"><i class="fas fa-plus-circle mr-1"></i>Add Product</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label class="block text-sm font-medium text-gray-700 mb-2">Status</label><select id="fStatus" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+        </div>
+        <div><label class="block text-sm font-medium text-gray-700 mb-1">Notes</label><textarea id="fNotes" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none"></textarea></div>
+      </div>
+      <div class="p-6 border-t border-gray-200 flex justify-end gap-3">
+        <button onclick="closeModal()" class="border border-gray-300 hover:bg-gray-50 text-gray-700 px-5 py-2 rounded-lg text-sm transition">Cancel</button>
+        <button onclick="saveSupplier()" id="saveSupplierBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm"><i class="fas fa-check mr-1"></i>Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div id="detailModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-auto fade-in" style="resize:horizontal;min-width:480px" id="detailContent"></div>
+  </div>
+
+  <!-- Image Lightbox -->
+  <div id="imageModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4" onclick="closeImageModal(event)">
+    <div class="relative max-w-2xl w-full max-h-[90vh] fade-in" onclick="event.stopPropagation()">
+      <button onclick="closeImageModal()" class="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-gray-600 hover:text-gray-900 z-10"><i class="fas fa-times"></i></button>
+      <img id="lightboxImage" src="" class="w-full max-h-[80vh] object-contain rounded-xl shadow-2xl">
+      <p id="lightboxCaption" class="text-white text-sm text-center mt-2 font-medium"></p>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div id="deleteModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-lg w-full max-w-sm fade-in p-6 text-center">
+      <div class="text-red-500 text-4xl mb-3"><i class="fas fa-exclamation-triangle"></i></div>
+      <h3 class="text-lg font-bold mb-2">Delete Supplier?</h3>
+      <p class="text-sm text-gray-500 mb-6">This action cannot be undone.</p>
+      <div class="flex justify-center gap-3">
+        <button onclick="closeDeleteModal()" class="border border-gray-300 hover:bg-gray-50 text-gray-700 px-5 py-2 rounded-lg text-sm transition">Cancel</button>
+        <button onclick="confirmDelete()" id="confirmDeleteBtn" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-sm">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Users Modal -->
+  <div id="userModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto fade-in">
+      <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold">Manage Users</h2>
+          <p class="text-xs text-gray-400 mt-0.5">Hanya Admin yang bisa mengubah role user lain.</p>
+        </div>
+        <button onclick="closeUserModal()" class="text-gray-400 hover:text-gray-600 text-xl"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="p-6">
+        <p class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4"><i class="fas fa-info-circle mr-1"></i>Untuk menambah atau menghapus user, gunakan <strong>Supabase Dashboard &gt; Authentication &gt; Users</strong>. User baru otomatis terdaftar sebagai <strong>Viewer</strong>.</p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm mb-4">
+            <thead><tr class="bg-gray-50 border-b border-gray-200">
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">Username</th>
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">Email</th>
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">Role</th>
+              <th class="text-center px-3 py-2 font-semibold text-gray-600">Actions</th>
+            </tr></thead>
+            <tbody id="userTableBody"><tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Categories Modal -->
+  <div id="categoryModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto fade-in">
+      <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+        <h2 class="text-lg font-bold">Manage Categories</h2>
+        <button onclick="closeCategoryModal()" class="text-gray-400 hover:text-gray-600 text-xl"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="p-6">
+        <table class="w-full text-sm mb-4">
+          <thead><tr class="bg-gray-50 border-b border-gray-200">
+            <th class="text-left px-3 py-2 font-semibold text-gray-600">Category</th>
+            <th class="text-left px-3 py-2 font-semibold text-gray-600">Color</th>
+            <th class="text-center px-3 py-2 font-semibold text-gray-600">Actions</th>
+          </tr></thead>
+          <tbody id="categoryTableBody"></tbody>
+        </table>
+        <div class="border-t border-gray-200 pt-4 mt-2">
+          <h3 class="text-sm font-semibold mb-3">Add Category</h3>
+          <input type="text" id="fCategoryName" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 outline-none w-full mb-2" placeholder="Category name">
+          <button onclick="addCategory()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"><i class="fas fa-plus mr-1"></i>Add Category</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== JAVASCRIPT ========== -->
+  <script>
+    // ─── Helpers ────────────────────────────────────────────
+    function $(id) { return document.getElementById(id); }
+    function escHtml(s) {
+      if (!s) return '';
+      return s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
+    function csvEsc(v) {
+      var s = (v || '').toString();
+      if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1)
+        return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }
+    function showToast(m, t) {
+      var e = $('toast');
+      e.className = 'toast px-5 py-3 rounded-xl shadow-2xl text-sm font-medium text-white flex items-center gap-2 ' + (t === 'success' ? 'bg-green-600' : t === 'warning' ? 'bg-amber-500' : 'bg-red-600');
+      e.innerHTML = '<i class="fas ' + (t === 'success' ? 'fa-check-circle' : t === 'warning' ? 'fa-exclamation-circle' : 'fa-exclamation-circle') + '"></i> ' + m;
+      e.classList.remove('hidden');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(function () { e.classList.add('hidden'); }, 3500);
+    }
+    function showLoading() { $('loadingOverlay').style.display = 'flex'; }
+    function hideLoading() { $('loadingOverlay').style.display = 'none'; }
+    function downloadFile(c, f, m) {
+      var b = new Blob([c], { type: m + ';charset=utf-8' }), u = URL.createObjectURL(b), a = document.createElement('a');
+      a.href = u; a.download = f; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+    }
+
+    // ─── State ─────────────────────────────────────────────
+    var suppliers = [], currentPage = 1, pageSize = 10;
+    var sortColumn = null, sortAsc = true;
+    var deleteTargetId = null;
+    var currentUser = null;
+    var CATEGORIES = [];
+    var CATEGORY_COLORS = {};
+    var CATEGORY_TEXT_COLORS = {};
+    var CATEGORY_PALETTE = [
+      {bg:'#dbeafe',text:'#1e40af'},{bg:'#fce7f3',text:'#9d174d'},{bg:'#e0e7ff',text:'#3730a3'},{bg:'#d1fae5',text:'#065f46'},
+      {bg:'#fef3c7',text:'#92400e'},{bg:'#f3e8ff',text:'#5b21b6'},{bg:'#ffedd5',text:'#9a3412'},{bg:'#f0fdf4',text:'#166534'},
+      {bg:'#fef2f2',text:'#991b1b'},{bg:'#fdf2f8',text:'#9d174d'},{bg:'#ecfeff',text:'#155e75'},{bg:'#f5f3ff',text:'#5b21b6'}
+    ];
+    var paletteIdx = 0;
+
+    // ─── Field Mapper (camelCase ↔ snake_case) ───────────────
+    function toSupabase(s) {
+      return {
+        company_name:   s.companyName   || '',
+        contact_person: s.contactPerson || '',
+        phone:          s.phone         || '',
+        email:          s.email         || '',
+        website:        s.website       || '',
+        address:        s.address       || '',
+        location:       s.location      || '',
+        categories:     s.categories    || [],
+        products:       (s.products || []).map(function(p) {
+          return typeof p === 'string' ? {name:p, image:'', category:''} : p;
+        }),
+        status:         s.status        || 'Active',
+        notes:          s.notes         || ''
+      };
+    }
+    function fromSupabase(r) {
+      return {
+        id:            r.id,
+        companyName:   r.company_name,
+        contactPerson: r.contact_person,
+        phone:         r.phone,
+        email:         r.email         || '',
+        website:       r.website       || '',
+        address:       r.address       || '',
+        location:      r.location      || '',
+        categories:    Array.isArray(r.categories) ? r.categories : [],
+        products:      Array.isArray(r.products)   ? r.products   : [],
+        status:        r.status,
+        notes:         r.notes         || '',
+        created_at:    r.created_at,
+        updated_at:    r.updated_at,
+        created_by:    r.created_by,
+        updated_by:    r.updated_by,
+        creatorUsername: r.creator ? r.creator.username : null,
+        updaterUsername: r.updater ? r.updater.username : null
+      };
+    }
+
+    // ─── Auth ───────────────────────────────────────────────
+    async function handleLogin() {
+      var email    = $('loginUsername').value.trim();
+      var password = $('loginPassword').value.trim();
+      $('loginError').classList.add('hidden');
+      if (!email || !password) {
+        $('loginError').textContent = 'Please enter email and password.';
+        $('loginError').classList.remove('hidden');
+        return;
+      }
+      $('loginBtn').disabled = true;
+      $('loginBtn').innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Signing in...';
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      $('loginBtn').disabled = false;
+      $('loginBtn').innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Sign In';
+
+      if (error) {
+        $('loginError').textContent = error.message;
+        $('loginError').classList.remove('hidden');
+        return;
+      }
+
+      if (data.user) {
+        await loadUserProfile(data.user.id);
+        await onLoginSuccess();
+      }
+    }
+
+    async function handleLogout() {
+      await supabase.auth.signOut();
+      currentUser = null;
+      suppliers = [];
+      $('appContent').classList.remove('active');
+      $('loginPage').classList.remove('hidden');
+      $('loginPage').classList.add('active');
+      $('loginUsername').value = '';
+      $('loginPassword').value = '';
+      $('loginError').classList.add('hidden');
+    }
+
+    async function checkSession() {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session?.user) {
+        $('loginPage').classList.remove('hidden');
+        $('loginPage').classList.add('active');
+        return false;
+      }
+      await loadUserProfile(session.user.id);
+      await onLoginSuccess();
+      return true;
+    }
+
+    async function loadUserProfile(userId) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, role')
+        .eq('id', userId)
+        .single();
+
+      if (error || !data) {
+        console.error('Error loading user profile:', error);
+        await supabase.auth.signOut();
+        $('loginPage').classList.remove('hidden');
+        $('loginPage').classList.add('active');
+        $('loginError').textContent = 'Failed to load user profile. Please contact admin.';
+        $('loginError').classList.remove('hidden');
+        return false;
+      }
+
+      currentUser = { id: data.id, username: data.username, role: data.role };
+      return true;
+    }
+
+    async function onLoginSuccess() {
+      $('loginPage').classList.add('hidden');
+      $('loginPage').classList.remove('active');
+      $('appContent').classList.add('active');
+      applyPermissions();
+      updateNavbar();
+      showLoading();
+      await Promise.all([loadCategories(), loadSuppliers()]);
+      hideLoading();
+      render();
+      showToast('Welcome, ' + currentUser.username + '!', 'success');
+    }
+
+    function updateNavbar() {
+      if (!currentUser) return;
+      $('navUsername').textContent = currentUser.username;
+      $('navUsername').classList.remove('hidden');
+      var rc = { 'Admin': 'bg-purple-100 text-purple-700', 'Editor': 'bg-blue-100 text-blue-700', 'Viewer': 'bg-gray-100 text-gray-700' };
+      $('navRole').textContent = currentUser.role;
+      $('navRole').className = 'text-xs px-2 py-0.5 rounded-full ' + (rc[currentUser.role] || 'bg-gray-100 text-gray-700');
+      $('navRole').classList.remove('hidden');
+      $('logoutBtn').classList.remove('hidden');
+    }
+
+    function applyPermissions() {
+      var role = currentUser ? currentUser.role : 'Viewer';
+      var canEdit  = (role === 'Admin' || role === 'Editor');
+      var canDelete = (role === 'Admin');
+      var isAdmin   = (role === 'Admin');
+      window.__canEdit   = canEdit;
+      window.__canDelete = canDelete;
+
+      var show = function(id, visible) {
+        var el = $(id); if (!el) return;
+        if (visible) el.classList.remove('hidden'); else el.classList.add('hidden');
+      };
+      show('addSupplierBtn', canEdit);
+      show('importBtn',      canEdit);
+      show('templateBtn',    canEdit);
+      show('manageUsersBtn',      isAdmin);
+      show('manageCategoriesBtn', isAdmin);
+    }
+
+    // ─── Load Data from Supabase ────────────────────────────
+    async function loadSuppliers() {
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('*, creator:users!created_by(username), updater:users!updated_by(username)')
+        .order('company_name', { ascending: true });
+      if (error) { showToast('Failed to load suppliers: ' + error.message, 'error'); return; }
+      suppliers = (data || []).map(fromSupabase);
+    }
+
+    async function loadCategories() {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('name', { ascending: true });
+      if (error) { showToast('Failed to load categories: ' + error.message, 'error'); return; }
+      CATEGORIES = [];
+      CATEGORY_COLORS = {};
+      CATEGORY_TEXT_COLORS = {};
+      (data || []).forEach(function(c) {
+        CATEGORIES.push(c.name);
+        CATEGORY_COLORS[c.name]      = c.bg_color;
+        CATEGORY_TEXT_COLORS[c.name] = c.text_color;
+      });
+      populateCategoryFilter();
+      $('statCategories').textContent = CATEGORIES.length;
+    }
+
+    function populateCategoryFilter() {
+      var sel = $('filterCategory');
+      var prev = sel.value;
+      sel.innerHTML = '<option value="">All Categories</option>';
+      CATEGORIES.forEach(function(c) {
+        var o = document.createElement('option');
+        o.value = c; o.textContent = c;
+        if (c === prev) o.selected = true;
+        sel.appendChild(o);
+      });
+    }
+
+    // ─── Render Table ───────────────────────────────────────
+    function getFilteredSorted() {
+      var q   = ($('searchInput').value || '').toLowerCase();
+      var st  = $('filterStatus').value;
+      var cat = $('filterCategory').value;
+
+      var list = suppliers.filter(function(s) {
+        var matchQ  = !q || s.companyName.toLowerCase().includes(q) ||
+                      (s.contactPerson||'').toLowerCase().includes(q) ||
+                      (s.phone||'').toLowerCase().includes(q) ||
+                      (s.email||'').toLowerCase().includes(q);
+        var matchSt = !st  || s.status === st;
+        var matchCt = !cat || (s.categories||[]).includes(cat);
+        return matchQ && matchSt && matchCt;
+      });
+
+      if (sortColumn) {
+        list.sort(function(a, b) {
+          var av = (a[sortColumn]||'').toString().toLowerCase();
+          var bv = (b[sortColumn]||'').toString().toLowerCase();
+          if (av < bv) return sortAsc ? -1 : 1;
+          if (av > bv) return sortAsc ?  1 : -1;
+          return 0;
+        });
+      }
+      return list;
+    }
+
+    function render() {
+      var list = getFilteredSorted();
+      var total = list.length;
+      var pages = Math.max(1, Math.ceil(total / pageSize));
+      if (currentPage > pages) currentPage = pages;
+      var start = (currentPage - 1) * pageSize;
+      var page  = list.slice(start, start + pageSize);
+
+      $('statTotal').textContent    = suppliers.length;
+      $('statActive').textContent   = suppliers.filter(function(s){return s.status==='Active';}).length;
+      $('statCategories').textContent = CATEGORIES.length;
+
+      var tbody = $('tableBody');
+      if (!page.length) {
+        tbody.innerHTML = '';
+        $('emptyState').classList.remove('hidden');
+        $('paginationBar').style.display = 'none';
+        return;
+      }
+      $('emptyState').classList.add('hidden');
+      $('paginationBar').style.display = '';
+
+      tbody.innerHTML = page.map(function(s) {
+        var cats = (s.categories||[]).map(function(c){
+          var bg = CATEGORY_COLORS[c]||'#f3e8ff', tx = CATEGORY_TEXT_COLORS[c]||'#5b21b6';
+          return '<span class="category-badge" style="background:'+bg+';color:'+tx+'">'+escHtml(c)+'</span>';
+        }).join('');
+
+        var prods = (s.products||[]).slice(0,3).map(function(p){
+          return '<span class="product-tag">'+escHtml(typeof p==='string'?p:p.name)+'</span>';
+        }).join('');
+        if ((s.products||[]).length > 3) prods += '<span class="product-tag">+'+(s.products.length-3)+' more</span>';
+
+        var statusCls = s.status==='Active'
+          ? 'bg-green-100 text-green-700'
+          : 'bg-gray-100 text-gray-500';
+
+        var actions = '<button onclick="openDetailModal('+s.id+')" title="View" class="text-indigo-600 hover:text-indigo-800 mx-1"><i class="fas fa-eye"></i></button>';
+        if (window.__canEdit)   actions += '<button onclick="openEditModal('+s.id+')" title="Edit" class="text-yellow-500 hover:text-yellow-700 mx-1"><i class="fas fa-edit"></i></button>';
+        if (window.__canDelete) actions += '<button onclick="openDeleteModal('+s.id+')" title="Delete" class="text-red-500 hover:text-red-700 mx-1"><i class="fas fa-trash"></i></button>';
+
+        return '<tr class="table-row-hover border-b border-gray-100">' +
+          '<td class="px-4 py-3 font-medium">'+escHtml(s.companyName)+'</td>' +
+          '<td class="px-4 py-3 text-gray-600">'+escHtml(s.contactPerson)+'<br><span class="text-xs text-gray-400">'+escHtml(s.phone)+'</span></td>' +
+          '<td class="px-4 py-3 text-gray-600">'+escHtml(s.phone)+'</td>' +
+          '<td class="px-4 py-3">'+cats+'</td>' +
+          '<td class="px-4 py-3">'+prods+'</td>' +
+          '<td class="px-4 py-3 text-center"><span class="text-xs font-medium px-2 py-1 rounded-full '+statusCls+'">'+s.status+'</span></td>' +
+          '<td class="px-4 py-3 text-center">'+actions+'</td>' +
+          '</tr>';
+      }).join('');
+
+      renderPagination(total, pages);
+    }
+
+    function renderPagination(total, pages) {
+      $('paginationInfo').textContent = 'Showing ' + Math.min(total, (currentPage-1)*pageSize+1) + '–' + Math.min(total, currentPage*pageSize) + ' of ' + total;
+      var btns = '';
+      btns += '<button class="pagination-btn rounded-l-lg" onclick="goPage('+(currentPage-1)+')" '+(currentPage===1?'disabled':'')+'>‹</button>';
+      for (var i = 1; i <= pages; i++) {
+        if (pages > 7 && Math.abs(i - currentPage) > 2 && i !== 1 && i !== pages) {
+          if (i === currentPage - 3 || i === currentPage + 3) btns += '<button class="pagination-btn" disabled>…</button>';
+          continue;
+        }
+        btns += '<button class="pagination-btn'+(i===currentPage?' active':'')+'" onclick="goPage('+i+')">'+i+'</button>';
+      }
+      btns += '<button class="pagination-btn rounded-r-lg" onclick="goPage('+(currentPage+1)+')" '+(currentPage===pages?'disabled':'')+'>›</button>';
+      $('paginationButtons').innerHTML = btns;
+    }
+
+    function goPage(p) {
+      var pages = Math.max(1, Math.ceil(getFilteredSorted().length / pageSize));
+      if (p < 1 || p > pages) return;
+      currentPage = p;
+      render();
+    }
+
+    function onSearch() { currentPage = 1; render(); }
+
+    function sortBy(col) {
+      document.querySelectorAll('.sort-icon').forEach(function(el){ el.classList.remove('active'); });
+      if (sortColumn === col) { sortAsc = !sortAsc; } else { sortColumn = col; sortAsc = true; }
+      var icon = $('sort-' + col);
+      if (icon) { icon.classList.add('active'); icon.className = icon.className.replace('fa-sort', sortAsc ? 'fa-sort-up' : 'fa-sort-down'); }
+      render();
+    }
+
+    // ─── Add / Edit Supplier ────────────────────────────────
+    function openAddModal() {
+      $('editId').value = '';
+      $('modalTitle').textContent = 'Add Supplier';
+      $('fCompanyName').value = '';
+      $('fContactPerson').value = '';
+      $('fPhone').value = '';
+      $('fEmail').value = '';
+      $('fWebsite').value = '';
+      $('fAddress').value = '';
+      $('fLocation').value = '';
+      $('fStatus').value = 'Active';
+      $('fNotes').value = '';
+      $('productsList').innerHTML = '';
+      $('addEditModal').classList.remove('hidden');
+      $('addEditModal').classList.add('flex');
+    }
+
+    function openEditModal(id) {
+      var s = suppliers.find(function(x){ return x.id === id; });
+      if (!s) return;
+      $('editId').value = s.id;
+      $('modalTitle').textContent = 'Edit Supplier';
+      $('fCompanyName').value  = s.companyName  || '';
+      $('fContactPerson').value = s.contactPerson || '';
+      $('fPhone').value    = s.phone    || '';
+      $('fEmail').value    = s.email    || '';
+      $('fWebsite').value  = s.website  || '';
+      $('fAddress').value  = s.address  || '';
+      $('fLocation').value = s.location || '';
+      $('fStatus').value   = s.status   || 'Active';
+      $('fNotes').value    = s.notes    || '';
+      $('productsList').innerHTML = '';
+      (s.products||[]).forEach(function(p){ addProductField(p); });
+      $('addEditModal').classList.remove('hidden');
+      $('addEditModal').classList.add('flex');
+    }
+
+    function closeModal() {
+      $('addEditModal').classList.add('hidden');
+      $('addEditModal').classList.remove('flex');
+    }
+
+    async function saveSupplier() {
+      var companyName   = $('fCompanyName').value.trim();
+      var contactPerson = $('fContactPerson').value.trim();
+      var phone         = $('fPhone').value.trim();
+      if (!companyName || !contactPerson || !phone) {
+        showToast('Company Name, Contact Person, and Phone are required.', 'error');
+        return;
+      }
+
+      // Collect products from table rows
+      var productRows = $('productsList').querySelectorAll('tr');
+      var products = [];
+      productRows.forEach(function(tr) {
+        var inputs  = tr.querySelectorAll('input[type="text"]');
+        var selects = tr.querySelectorAll('select');
+        var name    = inputs[0] ? inputs[0].value.trim() : '';
+        var cat     = selects[0] ? selects[0].value : '';
+        var img     = inputs[1] ? inputs[1].value.trim() : '';
+        if (name) products.push({ name: name, category: cat, image: img });
+      });
+
+      // Derive categories from products
+      var catSet = {};
+      products.forEach(function(p){ if(p.category) catSet[p.category] = true; });
+      var categories = Object.keys(catSet);
+
+      var payload = {
+        company_name:   companyName,
+        contact_person: contactPerson,
+        phone:          phone,
+        email:          $('fEmail').value.trim(),
+        website:        $('fWebsite').value.trim(),
+        address:        $('fAddress').value.trim(),
+        location:       $('fLocation').value.trim(),
+        categories:     categories,
+        products:       products,
+        status:         $('fStatus').value,
+        notes:          $('fNotes').value.trim()
+      };
+
+      showLoading();
+      var editId = $('editId').value;
+      var error;
+
+      if (editId) {
+        // UPDATE
+        var res = await supabase
+          .from('suppliers')
+          .update(payload)
+          .eq('id', parseInt(editId))
+          .select('*, creator:users!created_by(username), updater:users!updated_by(username)')
+          .single();
+        error = res.error;
+        if (!error) {
+          var idx = suppliers.findIndex(function(s){ return s.id === parseInt(editId); });
+          if (idx !== -1) suppliers[idx] = fromSupabase(res.data);
+        }
+      } else {
+        // INSERT
+        var res = await supabase
+          .from('suppliers')
+          .insert(payload)
+          .select('*, creator:users!created_by(username), updater:users!updated_by(username)')
+          .single();
+        error = res.error;
+        if (!error) suppliers.push(fromSupabase(res.data));
+      }
+
+      hideLoading();
+      if (error) {
+        showToast('Error saving supplier: ' + error.message, 'error');
+        return;
+      }
+      closeModal();
+      render();
+      showToast(editId ? 'Supplier updated.' : 'Supplier added.', 'success');
+    }
+
+    // ─── Delete Supplier ────────────────────────────────────
+    function openDeleteModal(id) {
+      deleteTargetId = id;
+      $('deleteModal').classList.remove('hidden');
+      $('deleteModal').classList.add('flex');
+    }
+    function closeDeleteModal() {
+      deleteTargetId = null;
+      $('deleteModal').classList.add('hidden');
+      $('deleteModal').classList.remove('flex');
+    }
+    async function confirmDelete() {
+      if (!deleteTargetId) return;
+      showLoading();
+      var { error } = await supabase
+        .from('suppliers')
+        .delete()
+        .eq('id', deleteTargetId);
+      hideLoading();
+      if (error) {
+        showToast('Error deleting supplier: ' + error.message, 'error');
+        closeDeleteModal();
+        return;
+      }
+      suppliers = suppliers.filter(function(s){ return s.id !== deleteTargetId; });
+      closeDeleteModal();
+      render();
+      showToast('Supplier deleted.', 'success');
+    }
+
+    // ─── Detail Modal ───────────────────────────────────────
+    function openDetailModal(id) {
+      var s = suppliers.find(function(x){ return x.id === id; });
+      if (!s) return;
+      var cats = (s.categories||[]).map(function(c){
+        var bg = CATEGORY_COLORS[c]||'#f3e8ff', tx = CATEGORY_TEXT_COLORS[c]||'#5b21b6';
+        return '<span class="category-badge" style="background:'+bg+';color:'+tx+'">'+escHtml(c)+'</span>';
+      }).join('');
+
+      var prodHTML = '';
+      (s.products||[]).forEach(function(p){
+        var name = typeof p==='string'?p:p.name;
+        var img  = typeof p==='object'?p.image:'';
+        var cat  = typeof p==='object'?p.category:'';
+        if (img) {
+          prodHTML += '<div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">' +
+            '<div class="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center flex-shrink-0 cursor-pointer" onclick="showImageLightbox(\''+escHtml(img)+'\',\''+escHtml(name)+'\')">'+
+            '<img src="'+escHtml(img)+'" alt="'+escHtml(name)+'" style="width:100%;height:100%;object-fit:cover" onerror="imgError(this)"></div>' +
+            '<div><div class="text-sm font-medium">'+escHtml(name)+'</div>' +
+            (cat?'<div class="text-xs text-gray-400">'+escHtml(cat)+'</div>':'') +
+            '</div></div>';
+        } else {
+          prodHTML += '<div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">' +
+            '<div class="w-12 h-12 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-300"><i class="fas fa-image"></i></div>' +
+            '<div><div class="text-sm font-medium">'+escHtml(name)+'</div>' +
+            (cat?'<div class="text-xs text-gray-400">'+escHtml(cat)+'</div>':'') +
+            '</div></div>';
+        }
+      });
+
+      var mapHTML = '';
+      if (s.location) {
+        var mapSrc = s.location.replace('https://maps.google.com/maps?', 'https://maps.google.com/maps?output=embed&');
+        mapHTML = '<div class="map-embed mt-3"><iframe src="'+escHtml(mapSrc)+'" allowfullscreen loading="lazy"></iframe></div>';
+      }
+
+      var auditHTML = '';
+      if (s.created_at) {
+        var createdTime = new Date(s.created_at).toLocaleString();
+        var creator = s.creatorUsername || 'System';
+        auditHTML += '<div class="text-xs text-gray-400 mt-4 border-t border-gray-100 pt-3">Created by <span class="font-medium text-gray-600">' + escHtml(creator) + '</span> on ' + createdTime;
+        if (s.updated_at && s.updated_at !== s.created_at) {
+          var updatedTime = new Date(s.updated_at).toLocaleString();
+          var updater = s.updaterUsername || 'System';
+          auditHTML += '<br>Last updated by <span class="font-medium text-gray-600">' + escHtml(updater) + '</span> on ' + updatedTime;
+        }
+        auditHTML += '</div>';
+      }
+
+      var h = '<div class="p-6 border-b border-gray-200 flex items-center justify-between">' +
+        '<h2 class="text-lg font-bold">'+escHtml(s.companyName)+'</h2>' +
+        '<button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 text-xl"><i class="fas fa-times"></i></button>' +
+        '</div><div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">' +
+        '<div class="space-y-3">' +
+        '<div><div class="text-xs text-gray-400 uppercase mb-1">Contact</div><div class="font-medium">'+escHtml(s.contactPerson)+'</div></div>' +
+        '<div><div class="text-xs text-gray-400 uppercase mb-1">Phone</div><div>'+escHtml(s.phone)+'</div></div>' +
+        (s.email?'<div><div class="text-xs text-gray-400 uppercase mb-1">Email</div><a href="mailto:'+escHtml(s.email)+'" class="text-indigo-600 hover:underline">'+escHtml(s.email)+'</a></div>':'') +
+        (s.website?'<div><div class="text-xs text-gray-400 uppercase mb-1">Website</div><a href="'+escHtml(s.website)+'" target="_blank" class="text-indigo-600 hover:underline">'+escHtml(s.website)+'</a></div>':'') +
+        (s.address?'<div><div class="text-xs text-gray-400 uppercase mb-1">Address</div><div>'+escHtml(s.address)+'</div></div>':'') +
+        '<div><div class="text-xs text-gray-400 uppercase mb-1">Status</div><span class="text-xs font-medium px-2 py-1 rounded-full '+(s.status==='Active'?'bg-green-100 text-green-700':'bg-gray-100 text-gray-500')+'">'+s.status+'</span></div>' +
+        '<div><div class="text-xs text-gray-400 uppercase mb-1">Categories</div>'+cats+'</div>' +
+        (s.notes?'<div><div class="text-xs text-gray-400 uppercase mb-1">Notes</div><div class="text-sm text-gray-600">'+escHtml(s.notes)+'</div></div>':'') +
+        auditHTML +
+        mapHTML +
+        '</div>' +
+        '<div><div class="text-xs text-gray-400 uppercase mb-2">Products ('+((s.products||[]).length)+')</div>' +
+        (prodHTML || '<div class="text-sm text-gray-400">No products listed.</div>') +
+        '</div></div>' +
+        '<div class="p-6 border-t border-gray-200 flex justify-end gap-3">';
+      if (window.__canEdit) h += '<button onclick="closeDetailModal();openEditModal('+s.id+')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"><i class="fas fa-edit mr-1"></i>Edit</button>';
+      h += '</div>';
+      $('detailContent').innerHTML = h;
+      $('detailModal').classList.remove('hidden');
+      $('detailModal').classList.add('flex');
+    }
+
+    function closeDetailModal() {
+      $('detailModal').classList.add('hidden');
+      $('detailModal').classList.remove('flex');
+    }
+
+    // ─── Image Lightbox ─────────────────────────────────────
+    function showImageLightbox(src, name) {
+      $('lightboxImage').src = src;
+      $('lightboxCaption').textContent = name || '';
+      $('imageModal').classList.remove('hidden');
+      $('imageModal').classList.add('flex');
+    }
+    function closeImageModal(e) {
+      if (e && e.target !== e.currentTarget) return;
+      $('imageModal').classList.add('hidden');
+      $('imageModal').classList.remove('flex');
+      $('lightboxImage').src = '';
+    }
+    function imgError(el) {
+      var p = document.createElement('i');
+      p.className = 'fas fa-image';
+      p.style.cssText = 'font-size:2rem;color:#94a3b8';
+      el.parentNode.replaceChild(p, el);
+    }
+
+    // ─── Product Fields in Modal ────────────────────────────
+    function addProductField(v) {
+      var tr  = document.createElement('tr');
+      var nm  = (typeof v==='object'&&v!==null) ? (v.name||'')  : (v||'');
+      var im  = (typeof v==='object'&&v!==null) ? (v.image||'') : '';
+      var cat = (typeof v==='object'&&v!==null) ? (v.category||'') : '';
+
+      var prev = im
+        ? '<img src="'+escHtml(im)+'" style="width:100%;height:100%;object-fit:cover" onerror="imgError(this)">'
+        : '<i class="fas fa-image"></i>';
+
+      var catOpts = '<option value="">Select category</option>';
+      CATEGORIES.forEach(function(c) {
+        catOpts += '<option value="'+escHtml(c)+'"'+(cat===c?' selected':'')+'>'+escHtml(c)+'</option>';
+      });
+
+      tr.innerHTML =
+        '<td class="px-2 py-2"><input type="text" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" placeholder="Product name" value="'+escHtml(nm)+'"></td>' +
+        '<td class="px-2 py-2"><select class="product-cat-select w-full border border-gray-300 rounded px-1 py-1 text-xs focus:ring-2 focus:ring-indigo-400 outline-none">'+catOpts+'</select></td>' +
+        '<td class="px-2 py-2"><div class="flex items-center gap-1"><input type="text" class="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" placeholder="Image URL" value="'+escHtml(im)+'" oninput="updateProductPreview(this)"><input type="file" accept="image/*" style="display:none" class="product-file-input" onchange="handleProductImageUpload(this)"><button type="button" onclick="this.previousElementSibling.click()" class="text-xs text-indigo-600 hover:text-indigo-800" title="Upload"><i class="fas fa-upload"></i></button></div></td>' +
+        '<td class="px-2 py-2 text-center"><div class="product-img-preview" style="width:40px;height:40px;border-radius:4px;overflow:hidden;border:1px solid #e2e8f0;margin:0 auto;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#94a3b8">'+prev+'</div></td>' +
+        '<td class="px-2 py-2 text-center"><button type="button" onclick="this.closest(\'tr\').remove()" class="text-gray-400 hover:text-red-500 transition"><i class="fas fa-times-circle"></i></button></td>';
+      $('productsList').appendChild(tr);
+    }
+
+    async function handleProductImageUpload(input) {
+      var file = input.files[0]; if (!file) return;
+      var row = input.closest('tr');
+      var textInputs = row.querySelectorAll('input[type="text"]');
+      var preview = row.querySelector('.product-img-preview');
+      
+      var originalPreview = preview ? preview.innerHTML : '<i class="fas fa-image"></i>';
+      if (preview) {
+        preview.innerHTML = '<i class="fas fa-spinner fa-spin text-indigo-600"></i>';
+      }
+
+      var ext = file.name.split('.').pop();
+      var cleanName = 'prod_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7) + '.' + ext;
+
+      const { data, error } = await supabase.storage
+        .from('product-images')
+        .upload(cleanName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        if (preview) preview.innerHTML = originalPreview;
+        showToast('Image upload failed: ' + error.message, 'error');
+        input.value = '';
+        return;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(cleanName);
+
+      var publicUrl = urlData.publicUrl;
+      if (textInputs.length >= 2) textInputs[1].value = publicUrl;
+      if (preview) {
+        preview.innerHTML = '<img src="'+escHtml(publicUrl)+'" style="width:100%;height:100%;object-fit:cover">';
+      }
+      showToast('Image uploaded successfully.', 'success');
+      input.value = '';
+    }
+
+    function updateProductPreview(input) {
+      var row = input.closest('tr');
+      var preview = row.querySelector('.product-img-preview');
+      var url = input.value.trim();
+      if (url) preview.innerHTML = '<img src="'+escHtml(url)+'" style="width:100%;height:100%;object-fit:cover" onerror="imgError(this)">';
+      else preview.innerHTML = '<i class="fas fa-image"></i>';
+    }
+
+    // ─── Import / Export ────────────────────────────────────
+    function handleImport(input) {
+      var file = input.files[0]; if (!file) return;
+      if (!window.__canEdit) { showToast('You do not have permission to import.', 'error'); input.value=''; return; }
+      var ext = file.name.split('.').pop().toLowerCase();
+      if (ext === 'csv') {
+        var reader = new FileReader();
+        reader.onload = function(e) { parseCSV(e.target.result); input.value=''; };
+        reader.readAsText(file);
+      } else if (ext==='xls'||ext==='xlsx') {
+        var reader = new FileReader();
+        reader.onload = function(e) { parseXLSX(new Uint8Array(e.target.result)); input.value=''; };
+        reader.readAsArrayBuffer(file);
+      } else {
+        showToast('Please select a CSV or Excel file.', 'error'); input.value='';
+      }
+    }
+
+    function parseCSV(text) {
+      var lines = text.split('\n');
+      if (lines.length < 2) { showToast('CSV file is empty or has no data rows.', 'error'); return; }
+      var headers = parseCSVRow(lines[0]);
+      var rows = [];
+      for (var i = 1; i < lines.length; i++) { var line=lines[i].trim(); if(line) rows.push(parseCSVRow(line)); }
+      processImportData(headers, rows);
+    }
+
+    function parseCSVRow(row) {
+      var result=[], current='', inQuotes=false;
+      for (var i=0; i<row.length; i++) {
+        var c=row[i];
+        if (inQuotes) { if(c==='"'){if(i+1<row.length&&row[i+1]==='"'){current+='"';i++;}else{inQuotes=false;}}else{current+=c;} }
+        else { if(c==='"'){inQuotes=true;}else if(c===','){result.push(current.trim());current='';}else{current+=c;} }
+      }
+      result.push(current.trim()); return result;
+    }
+
+    function parseXLSX(data) {
+      var wb=XLSX.read(data,{type:'array'}); var sheet=wb.Sheets[wb.SheetNames[0]];
+      var json=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+      if(json.length<2){showToast('Excel file is empty.','error');return;}
+      processImportData(json[0], json.slice(1).filter(function(r){return r.join('').trim();}));
+    }
+
+    async function processImportData(headers, rows) {
+      var hLower = headers.map(function(h){return h.toString().toLowerCase().trim();});
+      var colKeys = {
+        companyName:   ['company name','company','perusahaan','nama perusahaan','supplier'],
+        contactPerson: ['contact person','contact','pic','kontak','nama kontak'],
+        phone:         ['phone','telephone','telp','telepon','no telp','hp','no hp'],
+        email:         ['email','e-mail'],
+        website:       ['website','web','site'],
+        address:       ['address','alamat'],
+        location:      ['location','maps','google maps','lokasi','map'],
+        categories:    ['categories','category','kategori','cat'],
+        products:      ['products','product','produk','barang'],
+        status:        ['status'],
+        notes:         ['notes','note','keterangan','remark']
+      };
+      var map={};
+      for (var key in colKeys) {
+        for (var i=0; i<hLower.length; i++) {
+          for (var j=0; j<colKeys[key].length; j++) {
+            if (hLower[i].indexOf(colKeys[key][j]) !== -1) { map[key]=i; break; }
+          }
+          if (map[key]!==undefined) break;
+        }
+      }
+      if (map.companyName===undefined) { showToast('Could not find "Company Name" column.','error'); return; }
+
+      var batch=[], skipped=0;
+      rows.forEach(function(row) {
+        if(typeof row==='string') row=[row];
+        var cn=(row[map.companyName]||'').toString().trim(); if(!cn){skipped++;return;}
+        var cp=(map.contactPerson!==undefined?row[map.contactPerson]:'').toString().trim()||cn;
+        var ph=(map.phone!==undefined?row[map.phone]:'').toString().trim()||'-';
+        var categories=[];
+        if(map.categories!==undefined){var raw=(row[map.categories]||'').toString().trim();if(raw)categories=raw.split(/[,;\/]/).map(function(s){return s.trim();}).filter(Boolean);}
+        if(!categories.length) categories=['General Part'];
+        var defCat=categories[0];
+        var products=[];
+        if(map.products!==undefined){var pRaw=(row[map.products]||'').toString().trim();if(pRaw)pRaw.split(/[,;]/).forEach(function(n){n=n.trim();if(n)products.push({name:n,image:'',category:defCat});});}
+        var status=(map.status!==undefined?row[map.status]:'').toString().trim();
+        if(status!=='Active'&&status!=='Inactive') status='Active';
+        batch.push({
+          company_name:   cn, contact_person: cp, phone: ph,
+          email:          (map.email!==undefined?row[map.email]:'').toString().trim(),
+          website:        (map.website!==undefined?row[map.website]:'').toString().trim(),
+          address:        (map.address!==undefined?row[map.address]:'').toString().trim(),
+          location:       (map.location!==undefined?row[map.location]:'').toString().trim(),
+          categories:     categories, products: products, status: status,
+          notes:          (map.notes!==undefined?row[map.notes]:'').toString().trim()
+        });
+      });
+
+      if (!batch.length) { showToast('No valid rows found.', 'warning'); return; }
+      showLoading();
+      var { data, error } = await supabase.from('suppliers').insert(batch).select('*, creator:users!created_by(username), updater:users!updated_by(username)');
+      hideLoading();
+      if (error) { showToast('Import error: ' + error.message, 'error'); return; }
+      (data||[]).forEach(function(r){ suppliers.push(fromSupabase(r)); });
+      render();
+      showToast('Imported ' + batch.length + ' supplier'+(batch.length>1?'s':'')+(skipped>0?', '+skipped+' skipped':'')+'.','success');
+    }
+
+    function exportCSV() {
+      var hdrs=['Company Name','Contact Person','Phone','Email','Website','Address','Location','Categories','Products','Status','Notes'];
+      var rows = suppliers.map(function(s){
+        var prodStr=(s.products||[]).map(function(p){return typeof p==='string'?p:p.name;}).join(', ');
+        return [csvEsc(s.companyName),csvEsc(s.contactPerson),csvEsc(s.phone),csvEsc(s.email||''),
+                csvEsc(s.website||''),csvEsc(s.address||''),csvEsc(s.location||''),
+                csvEsc((s.categories||[]).join(', ')),csvEsc(prodStr),s.status,csvEsc(s.notes||'')];
+      });
+      var csv=hdrs.join(',')+'\\n'+rows.map(function(r){return r.join(',');}).join('\\n');
+      downloadFile(csv,'suppliers.csv','text/csv');
+      showToast('CSV exported!','success');
+    }
+
+    function downloadTemplate() {
+      var hdrs=['Company Name','Contact Person','Phone','Email','Website','Address','Location','Categories','Products','Status','Notes'];
+      var rows=[
+        ['PT Maju Jaya','Budi Santoso','021-5550123','budi@maju.co.id','https://maju.co.id','Jl. Gatot Subroto No.10','https://maps.google.com/?q=Jakarta','Raw Materials;Packaging','Steel Sheets;Aluminum Bars','Active','Long-term partner since 2020'],
+        ['CV Teknik Prima','Siti Rahma','022-7890456','siti@prima.com','','Jl. Asia Afrika No.45','','Electronics','PCB Assemblies;Microcontrollers','Active','ISO certified'],
+        ['UD Berkah Abadi','Ahmad Fauzi','0341-123456','ahmad@abadi.com','','Jl. Ijen No.7','','Stationery;General Part','Paper;Pens;Markers','Inactive','Minimum order 100 pcs']
+      ];
+      var csv=hdrs.join(',')+'\\n';
+      rows.forEach(function(row){var esc=row.map(function(v){if(v.indexOf(',')!==-1||v.indexOf('"')!==-1)v='"'+v.replace(/"/g,'""')+'"';return v;});csv+=esc.join(',')+'\\n';});
+      downloadFile(csv,'template-import.csv','text/csv');
+      showToast('Template downloaded!','success');
+    }
+
+    // ─── Manage Users ───────────────────────────────────────
+    async function openManageUsers() {
+      $('userModal').classList.remove('hidden');
+      $('userModal').classList.add('flex');
+      $('userTableBody').innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr>';
+
+      // Gunakan RPC get_users_with_email() agar email dari auth.users ikut tampil
+      const { data, error } = await supabase.rpc('get_users_with_email');
+
+      if (error) {
+        $('userTableBody').innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-red-400 text-sm">Error loading users: '+escHtml(error.message)+'</td></tr>';
+        return;
+      }
+
+      var rc = {'Admin':'bg-purple-100 text-purple-700','Editor':'bg-blue-100 text-blue-700','Viewer':'bg-gray-100 text-gray-700'};
+      var isAdmin = currentUser && currentUser.role === 'Admin';
+
+      $('userTableBody').innerHTML = (data||[]).map(function(u) {
+        var isSelf = currentUser && u.id === currentUser.id;
+        var roleSelect = '';
+        if (isAdmin && !isSelf) {
+          roleSelect =
+            '<div class="flex items-center gap-1">' +
+            '<select id="rolesel-'+u.id+'" class="border border-gray-200 rounded px-1 py-0.5 text-xs focus:ring-2 focus:ring-indigo-400 outline-none">' +
+            '<option value="Admin"'+(u.role==='Admin'?' selected':'')+'>Admin</option>' +
+            '<option value="Editor"'+(u.role==='Editor'?' selected':'')+'>Editor</option>' +
+            '<option value="Viewer"'+(u.role==='Viewer'?' selected':'')+'>Viewer</option>' +
+            '</select>' +
+            '<button onclick="saveUserRole(\''+u.id+'\')" class="text-xs text-indigo-600 hover:text-indigo-800 px-2 py-0.5 rounded border border-indigo-200 hover:bg-indigo-50 transition" title="Save role"><i class="fas fa-save"></i></button>' +
+            '</div>';
+        } else {
+          roleSelect = '<span class="text-xs px-2 py-0.5 rounded-full '+(rc[u.role]||'bg-gray-100 text-gray-700')+'">' + u.role + (isSelf?' <span class="opacity-60">(you)</span>':'') + '</span>';
+        }
+
+        return '<tr class="border-b border-gray-100 table-row-hover" id="userrow-'+u.id+'">' +
+          '<td class="px-3 py-2 text-sm font-medium">' + escHtml(u.username) + '</td>' +
+          '<td class="px-3 py-2 text-sm text-gray-500">' + escHtml(u.email || '—') + '</td>' +
+          '<td class="px-3 py-2" id="userrole-'+u.id+'">' + roleSelect + '</td>' +
+          '<td class="px-3 py-2 text-center"></td>' +
+          '</tr>';
+      }).join('') || '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm">No users found.</td></tr>';
+    }
+
+    async function saveUserRole(userId) {
+      var sel = $('rolesel-' + userId);
+      if (!sel) return;
+      var newRole = sel.value;
+      sel.disabled = true;
+
+      const { data, error } = await supabase.rpc('update_user_role', {
+        target_user_id: userId,
+        new_role: newRole
+      });
+
+      sel.disabled = false;
+
+      if (error || (data && data.success === false)) {
+        var msg = error ? error.message : (data && data.error) || 'Unknown error';
+        showToast('Failed to update role: ' + msg, 'error');
+        return;
+      }
+
+      showToast('Role updated to ' + newRole + '.', 'success');
+      // Refresh user list
+      await openManageUsers();
+    }
+
+    function closeUserModal() {
+      $('userModal').classList.add('hidden');
+      $('userModal').classList.remove('flex');
+    }
+
+    // ─── Manage Categories ──────────────────────────────────
+    function openManageCategories() {
+      $('categoryModal').classList.remove('hidden');
+      $('categoryModal').classList.add('flex');
+      renderCategories();
+    }
+
+    function closeCategoryModal() {
+      $('categoryModal').classList.add('hidden');
+      $('categoryModal').classList.remove('flex');
+      $('fCategoryName').value = '';
+    }
+
+    function renderCategories() {
+      var html = CATEGORIES.map(function(c, i) {
+        var bg = CATEGORY_COLORS[c]||'#f3e8ff', tx = CATEGORY_TEXT_COLORS[c]||'#5b21b6';
+        return '<tr class="border-b border-gray-100">' +
+          '<td class="px-3 py-2 text-sm font-medium">'+escHtml(c)+'</td>' +
+          '<td class="px-3 py-2"><span class="category-badge" style="background:'+bg+';color:'+tx+'">'+escHtml(c)+'</span></td>' +
+          '<td class="px-3 py-2 text-center"><button onclick="deleteCategory('+i+')" class="text-xs text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button></td>' +
+          '</tr>';
+      }).join('');
+      $('categoryTableBody').innerHTML = html || '<tr><td colspan="3" class="px-3 py-4 text-center text-gray-400 text-sm">No categories.</td></tr>';
+    }
+
+    async function addCategory() {
+      var name = $('fCategoryName').value.trim();
+      if (!name) { showToast('Please enter a category name.', 'error'); return; }
+      if (CATEGORIES.some(function(c){ return c.toLowerCase()===name.toLowerCase(); })) {
+        showToast('Category already exists.', 'error'); return;
+      }
+      var p = CATEGORY_PALETTE[paletteIdx % CATEGORY_PALETTE.length];
+      paletteIdx++;
+      showLoading();
+      var { data, error } = await supabase
+        .from('categories')
+        .insert({ name: name, bg_color: p.bg, text_color: p.text })
+        .select()
+        .single();
+      hideLoading();
+      if (error) { showToast('Error adding category: ' + error.message, 'error'); return; }
+      CATEGORIES.push(data.name);
+      CATEGORY_COLORS[data.name]      = data.bg_color;
+      CATEGORY_TEXT_COLORS[data.name] = data.text_color;
+      $('fCategoryName').value = '';
+      renderCategories();
+      populateCategoryFilter();
+      render();
+      showToast('Category added.', 'success');
+    }
+
+    async function deleteCategory(idx) {
+      if (CATEGORIES.length <= 1) { showToast('Cannot delete the last category.', 'error'); return; }
+      var name = CATEGORIES[idx];
+      showLoading();
+      var { error } = await supabase.from('categories').delete().eq('name', name);
+      hideLoading();
+      if (error) { showToast('Error deleting category: ' + error.message, 'error'); return; }
+      CATEGORIES.splice(idx, 1);
+      delete CATEGORY_COLORS[name];
+      delete CATEGORY_TEXT_COLORS[name];
+      renderCategories();
+      populateCategoryFilter();
+      render();
+      showToast('Category deleted.', 'success');
+    }
+
+    // ─── Realtime Subscriptions ─────────────────────────────
+    var _realtimeChannel = null;
+
+    function setupRealtime() {
+      // Batalkan channel sebelumnya jika ada
+      if (_realtimeChannel) {
+        supabase.removeChannel(_realtimeChannel);
+      }
+
+      _realtimeChannel = supabase
+        .channel('db-changes')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'suppliers' },
+          function(payload) {
+            var existing = suppliers.find(function(s){ return s.id === payload.new.id; });
+            if (!existing) {
+              suppliers.push(fromSupabase(payload.new));
+              render();
+              showToast('New supplier added by another user.', 'warning');
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'suppliers' },
+          function(payload) {
+            var idx = suppliers.findIndex(function(s){ return s.id === payload.new.id; });
+            if (idx !== -1) {
+              suppliers[idx] = fromSupabase(payload.new);
+              render();
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'suppliers' },
+          function(payload) {
+            var prev = suppliers.length;
+            suppliers = suppliers.filter(function(s){ return s.id !== payload.old.id; });
+            if (suppliers.length !== prev) {
+              render();
+              showToast('A supplier was deleted by another user.', 'warning');
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'categories' },
+          async function() {
+            // Reload categories ketika ada perubahan
+            await loadCategories();
+            render();
+          }
+        )
+        .subscribe();
+    }
+
+    function teardownRealtime() {
+      if (_realtimeChannel) {
+        supabase.removeChannel(_realtimeChannel);
+        _realtimeChannel = null;
+      }
+    }
+
+    // ─── Init ───────────────────────────────────────────────
+    async function init() {
+      hideLoading(); // will show again when loading data
+      var isLoggedIn = await checkSession();
+      if (!isLoggedIn) hideLoading();
+    }
+
+    // Tambahkan realtime setup setelah onLoginSuccess
+    var _origOnLoginSuccess = onLoginSuccess;
+    onLoginSuccess = async function() {
+      await _origOnLoginSuccess();
+      setupRealtime();
+    };
+
+    // Teardown realtime saat logout
+    var _origHandleLogout = handleLogout;
+    handleLogout = async function() {
+      teardownRealtime();
+      await _origHandleLogout();
+    };
+
+    init();
+  </script>
+</body>
+</html>
