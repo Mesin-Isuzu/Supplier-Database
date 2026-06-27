@@ -235,6 +235,12 @@ ORDER BY n.nspname, p.proname;
 
 
 -- ============================================================
--- 14. CHECK: Lihat isi admin_create_user_v2
+-- 14. TEST: Jalankan admin_create_user_v2 langsung dari SQL
+--    (tidak kena rate limit app, lewati pg_net)
 -- ============================================================
-SELECT pg_get_functiondef('public.admin_create_user_v2'::regproc);
+SELECT public.admin_create_user_v2(
+  'testeditor@gmail.com',
+  '123456',
+  'testeditor',
+  'Editor'
+);
