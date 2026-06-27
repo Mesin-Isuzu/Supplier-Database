@@ -222,3 +222,13 @@ DELETE FROM auth.users WHERE email = 'editor@gmail.com';
 DELETE FROM auth.identities WHERE provider_id = 'editor2@gmail.com';
 DELETE FROM public.users WHERE username = 'editor2';
 DELETE FROM auth.users WHERE email = 'editor2@gmail.com';
+
+
+-- ============================================================
+-- 13. CHECK: Cari fungsi create_user bawaan Supabase
+-- ============================================================
+SELECT n.nspname || '.' || p.proname as func
+FROM pg_proc p
+JOIN pg_namespace n ON p.pronamespace = n.oid
+WHERE p.proname LIKE '%create_user%' OR p.proname LIKE '%createuser%'
+ORDER BY n.nspname, p.proname;
