@@ -238,3 +238,85 @@ ORDER BY n.nspname, p.proname;
 -- 14. CHECK: Apakah pg_net extension ada?
 -- ============================================================
 SELECT extname, extversion FROM pg_extension WHERE extname = 'pg_net' OR extname = 'pgsql_http';
+
+
+-- ============================================================
+-- 15. FIX admin_create_user_v2: perbaiki pg_net call utk v0.20
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.admin_create_user_v2(
+  user_email TEXT,
+  user_password TEXT,
+  user_username TEXT,
+  user_role TEXT
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+DECLARE
+  service_role_key TEXT := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqbHJuaXpwbG94dWJ4a290cmluIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjMxNzI0NSwiZXhwIjoyMDk3ODkzMjQ1fQ.DRk1HMyjNGrjcv_KVL-j8JV8HCWvey2cVvRN_OWc-mM';
+  api_url TEXT := 'https://fjlrnizploxubxkotrin.supabase.co/auth/v1/admin/users';
+  req_id BIGINT;
+  resp_status INT;
+  resp_body TEXT;
+  resp_raw RECORD;
+  new_id UUID;
+BEGIN
+  IF NOT public.is_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'Access denied: only admins can create users.';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM auth.users WHERE email = LOWER(user_email)) THEN
+    RAISE EXCEPTION 'Email already registered.';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.users WHERE username = user_username) THEN
+    RAISE EXCEPTION 'Username already taken.';
+  END IF;
+
+  req_id := net.http_post(
+    url := api_url,
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer ' || service_role_key,
+      'Content-Type', 'application/json'
+    ),
+    body := jsonb_build_object(
+      'email', LOWER(user_email),
+      'password', user_password,
+      'email_confirm', true,
+      'user_metadata', jsonb_build_object('username', user_username, 'app_role', user_role),
+      'app_metadata', jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email'))
+    ),
+    timeout_milliseconds := 15000
+  );
+
+  PERFORM net._http_collect_response(req_id, true);
+  
+  SELECT status, content::text INTO resp_status, resp_body
+  FROM net._http_response
+  WHERE id = req_id;
+
+  IF resp_status IS NULL THEN
+    RAISE EXCEPTION 'No response from GoTrue API';
+  END IF;
+
+  IF resp_status >= 300 THEN
+    RAISE EXCEPTION 'GoTrue API error (HTTP %): %', resp_status, coalesce(resp_body, 'no body');
+  END IF;
+
+  BEGIN
+    new_id := (resp_body::jsonb->>'id')::UUID;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE EXCEPTION 'Parse error. Status: %, Body: %', resp_status, resp_body;
+  END;
+
+  IF new_id IS NULL THEN
+    RAISE EXCEPTION 'GoTrue API did not return user id';
+  END IF;
+
+  INSERT INTO public.users (id, username, role) VALUES (new_id, user_username, user_role)
+  ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role;
+
+  RETURN jsonb_build_object('success', true, 'user_id', new_id);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.admin_create_user_v2(TEXT, TEXT, TEXT, TEXT) TO authenticated;
