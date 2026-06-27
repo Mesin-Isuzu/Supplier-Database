@@ -522,29 +522,25 @@ BEGIN
     new_id, user_email, encrypted_pw, NOW(), NULL, 0,
     '{"provider":"email","providers":["email"]}',
     jsonb_build_object('username', user_username, 'app_role', user_role),
-    NOW(), NOW(), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+    NOW(), NOW(), COALESCE((SELECT id FROM auth.instances LIMIT 1), '00000000-0000-0000-0000-000000000000'::uuid), 'authenticated', 'authenticated',
     false, false
   );
 
   INSERT INTO public.users (id, username, role) VALUES (new_id, user_username, user_role)
   ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role;
 
-  -- Buat identity record (id terpisah dari user_id)
-  BEGIN
-    INSERT INTO auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
-    VALUES (
-      gen_random_uuid(),
-      user_email,
-      new_id,
-      jsonb_build_object('email', user_email, 'sub', new_id::TEXT),
-      'email',
-      NOW(),
-      NOW(),
-      NOW()
-    )
-    ON CONFLICT DO NOTHING;
-  EXCEPTION WHEN OTHERS THEN
-  END;
+  INSERT INTO auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+  VALUES (
+    gen_random_uuid(),
+    user_email,
+    new_id,
+    jsonb_build_object('email', user_email, 'sub', new_id::TEXT),
+    'email',
+    NOW(),
+    NOW(),
+    NOW()
+  )
+  ON CONFLICT DO NOTHING;
 
   RETURN jsonb_build_object('success', true, 'user_id', new_id);
 END;
