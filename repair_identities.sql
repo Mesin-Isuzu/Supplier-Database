@@ -201,3 +201,24 @@ INSERT INTO public.users (id, username, role)
 SELECT id, 'editor3', 'Editor'
 FROM auth.users WHERE email = 'editor3@gmail.com'
 ON CONFLICT (id) DO UPDATE SET role = 'Editor', username = 'editor3';
+
+
+-- ============================================================
+-- 12. FINAL CLEANUP: Hapus user lama yg dibuat via admin_create_user
+--    (password-nya broken, tidak bisa login)
+--    JANGAN jalankan kalau admin dibuat via RPC juga!
+-- ============================================================
+-- Hapus viewer lama
+DELETE FROM auth.identities WHERE provider_id = 'viewer@gmail.com';
+DELETE FROM public.users WHERE username = 'viewer';
+DELETE FROM auth.users WHERE email = 'viewer@gmail.com';
+
+-- Hapus editor lama
+DELETE FROM auth.identities WHERE provider_id = 'editor@gmail.com';
+DELETE FROM public.users WHERE username = 'editor';
+DELETE FROM auth.users WHERE email = 'editor@gmail.com';
+
+-- Hapus editor2 (kalau ada)
+DELETE FROM auth.identities WHERE provider_id = 'editor2@gmail.com';
+DELETE FROM public.users WHERE username = 'editor2';
+DELETE FROM auth.users WHERE email = 'editor2@gmail.com';
