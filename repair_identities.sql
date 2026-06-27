@@ -335,3 +335,16 @@ WHERE table_schema = 'net' AND table_name = '_http_response';
 SELECT proname FROM pg_proc
 WHERE pronamespace = 'net'::regnamespace
 ORDER BY proname;
+
+
+-- ============================================================
+-- 18. CREATE USER VIA DASHBOARD:
+--     1. Buka Supabase Dashboard > Auth > Users > Add User
+--     2. Isi email + password, klik Create
+--     3. Jalankan SQL ini (ganti email & role). 
+--     Ini bypass rate limit sepenuhnya.
+-- ============================================================
+INSERT INTO public.users (id, username, role)
+SELECT id, SPLIT_PART(email, '@', 1), 'Editor'
+FROM auth.users WHERE email = 'userbaru@gmail.com'
+ON CONFLICT (id) DO UPDATE SET role = 'Editor';
