@@ -28,11 +28,11 @@ Aplikasi manajemen database supplier berbasis web, dibangun dengan HTML + Supaba
 
 ### 2. Konfigurasi
 
-Edit bagian ini di `index.html`:
+Edit bagian ini di `public/app.js`:
 
 ```js
-const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+var SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
+var SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
 ```
 
 ### 3. Buat User Pertama
@@ -51,7 +51,11 @@ Setelah push ke branch `main`, buka:
 ## Struktur File
 
 ```
-├── index.html              # Aplikasi utama (single-file)
+├── public/
+│   ├── index.html          # Aplikasi utama (HTML)
+│   ├── app.js              # Aplikasi utama (JavaScript)
+│   ├── 404.html            # Redirect SPA untuk GitHub Pages
+│   └── .nojekyll           # Skip Jekyll processing
 ├── supabase_schema.sql     # Schema database Supabase
 ├── sample-import.csv       # Contoh file untuk import supplier
 ├── .github/
