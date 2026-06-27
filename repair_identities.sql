@@ -290,7 +290,7 @@ BEGIN
 
   PERFORM net._http_collect_response(req_id, true);
   
-  SELECT status, content::text INTO resp_status, resp_body
+  SELECT status_code, content INTO resp_status, resp_body
   FROM net._http_response
   WHERE id = req_id;
 
@@ -327,3 +327,11 @@ GRANT EXECUTE ON FUNCTION public.admin_create_user_v2(TEXT, TEXT, TEXT, TEXT) TO
 -- ============================================================
 SELECT column_name, data_type FROM information_schema.columns
 WHERE table_schema = 'net' AND table_name = '_http_response';
+
+
+-- ============================================================
+-- 17. CHECK: Lihat semua fungsi pg_net yg tersedia
+-- ============================================================
+SELECT proname FROM pg_proc
+WHERE pronamespace = 'net'::regnamespace
+ORDER BY proname;
