@@ -170,3 +170,16 @@ WHERE email LIKE '%admin%' OR email LIKE '%editor%';
 UPDATE auth.users
 SET encrypted_password = crypt('Test1234', gen_salt('bf', 10))
 WHERE email = 'editor@gmail.com';
+
+
+-- ============================================================
+-- 9. CLEANUP: Hapus user Editor/Viewer lama (yg broken)
+--    Lalu buat ulang lewat app Manage Users > Add User
+-- ============================================================
+DELETE FROM auth.identities WHERE user_id IN (
+  SELECT id FROM auth.users WHERE email IN ('editor@gmail.com', 'viewer@gmail.com')
+);
+DELETE FROM public.users WHERE id IN (
+  SELECT id FROM auth.users WHERE email IN ('editor@gmail.com', 'viewer@gmail.com')
+);
+DELETE FROM auth.users WHERE email IN ('editor@gmail.com', 'viewer@gmail.com');
