@@ -101,3 +101,18 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.admin_create_user(TEXT, TEXT, TEXT, TEXT) TO authenticated;
+
+
+-- ============================================================
+-- 3. DIAGNOSTIC: Cek user Editor/Viewer yg sudah ada
+--    Jalankan & paste hasilnya
+-- ============================================================
+SELECT pu.username, pu.role, 
+  ai.id IS NOT NULL as has_identity,
+  ai.identity_data,
+  au.instance_id,
+  LEFT(au.encrypted_password, 20) as pw_hash_prefix
+FROM public.users pu
+JOIN auth.users au ON au.id = pu.id
+LEFT JOIN auth.identities ai ON ai.user_id = au.id AND ai.provider = 'email'
+WHERE pu.role IN ('Editor', 'Viewer');
