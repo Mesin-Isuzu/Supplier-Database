@@ -161,3 +161,12 @@ FROM auth.users WHERE email LIKE '%editor%' LIMIT 1;
 SELECT email, length(encrypted_password) as pw_len
 FROM auth.users
 WHERE email LIKE '%admin%' OR email LIKE '%editor%';
+
+
+-- ============================================================
+-- 8. RESET PASSWORD: Reset password editor ke "Test1234"
+--    Setelah ini coba login: editor@gmail.com / Test1234
+-- ============================================================
+UPDATE auth.users
+SET encrypted_password = crypt('Test1234', gen_salt('bf', 10))
+WHERE email = 'editor@gmail.com';
