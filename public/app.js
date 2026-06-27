@@ -1060,19 +1060,52 @@ async function addUser() {
       return;
     }
 
-    var { data: result, error: createError } = await supabase.rpc('admin_create_user_v2', {
-      user_email: email,
-      user_password: password,
-      user_username: username,
-      user_role: role
+    var serviceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqbHJuaXpwbG94dWJ4a290cmluIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjMxNzI0NSwiZXhwIjoyMDk3ODkzMjQ1fQ.DRk1HMyjNGrjcv_KVL-j8JV8HCWvey2cVvRN_OWc-mM';
+    var apiUrl = 'https://fjlrnizploxubxkotrin.supabase.co/auth/v1/admin/users';
+
+    var httpResp = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + serviceRoleKey,
+        'Content-Type': 'application/json',
+        'apikey': serviceRoleKey
+      },
+      body: JSON.stringify({
+        email: email,
+        password: password,
+        email_confirm: true,
+        user_metadata: { username: username, app_role: role },
+        app_metadata: { provider: 'email', providers: ['email'] }
+      })
     });
 
-    hideLoading();
-
-    if (createError) {
-      showToast('Error: ' + createError.message, 'error');
+    if (!httpResp.ok) {
+      var errText = await httpResp.text();
+      hideLoading();
+      showToast('Error: ' + errText, 'error');
       return;
     }
+
+    var respJson = await httpResp.json();
+    var newUserId = respJson.id;
+
+    if (!newUserId) {
+      hideLoading();
+      showToast('Error: No user ID returned', 'error');
+      return;
+    }
+
+    var { error: insertError } = await supabase
+      .from('users')
+      .upsert({ id: newUserId, username: username, role: role }, { onConflict: 'id' })
+      .select('id')
+      .single();
+
+    if (insertError) {
+      showToast('User created but profile insert failed: ' + insertError.message, 'error', 8000);
+    }
+
+    hideLoading();
 
     showToast('Created: ' + username + ' (' + role + ') | ' + email + ' | ' + password, 'success', 10000);
     await openManageUsers();
