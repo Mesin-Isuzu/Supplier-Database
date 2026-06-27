@@ -204,6 +204,11 @@ CREATE POLICY "users_select_own" ON public.users
 CREATE POLICY "users_select_admin" ON public.users
   FOR SELECT USING (public.is_admin(auth.uid()));
 
+-- Semua user terautentikasi bisa baca profil user lain
+-- (diperlukan untuk embedded SELECT creator/updater pada tabel suppliers)
+CREATE POLICY "users_select_authenticated" ON public.users
+  FOR SELECT USING (auth.role() = 'authenticated');
+
 -- Admin bisa insert user baru (juga digunakan oleh trigger handle_new_user via SECURITY DEFINER)
 CREATE POLICY "users_insert_trigger" ON public.users
   FOR INSERT WITH CHECK (public.is_admin(auth.uid()));
@@ -710,7 +715,6 @@ DECLARE
   user_count    INT;
   assigned_role TEXT;
 BEGIN
-  -- Ambil username dari metadata jika ada
   new_username := COALESCE(
     NEW.raw_user_meta_data->>'username',
     NEW.raw_user_meta_data->>'display_name'

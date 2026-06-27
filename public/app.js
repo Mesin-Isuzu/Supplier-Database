@@ -98,8 +98,8 @@ function fromSupabase(r) {
     updated_at:    r.updated_at,
     created_by:    r.created_by,
     updated_by:    r.updated_by,
-    creatorUsername: r.creator ? r.creator.username : null,
-    updaterUsername: r.updater ? r.updater.username : null
+    creatorUsername: (r.creator && r.creator.username) ? r.creator.username : null,
+    updaterUsername: (r.updater && r.updater.username) ? r.updater.username : null
   };
 }
 
@@ -149,7 +149,12 @@ async function handleLogin() {
 
   if (data.user) {
     var ok = await loadUserProfile(data.user.id);
-    if (ok) await onLoginSuccess();
+    if (ok) {
+      await onLoginSuccess();
+    } else {
+      $('loginError').textContent = $('loginError').textContent || 'Failed to load user profile. Please contact admin.';
+      $('loginError').classList.remove('hidden');
+    }
   }
 }
 
@@ -175,7 +180,14 @@ async function checkSession() {
   }
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
-    if (error || !session?.user) {
+    if (error) {
+      $('loginPage').classList.remove('hidden');
+      $('loginPage').classList.add('active');
+      $('loginError').textContent = 'Session error: ' + (error.message || 'Unknown error');
+      $('loginError').classList.remove('hidden');
+      return false;
+    }
+    if (!session?.user) {
       $('loginPage').classList.remove('hidden');
       $('loginPage').classList.add('active');
       return false;
@@ -214,7 +226,8 @@ async function loadUserProfile(userId) {
       await supabase.auth.signOut();
       $('loginPage').classList.remove('hidden');
       $('loginPage').classList.add('active');
-      $('loginError').textContent = 'Failed to load user profile. Please contact admin.';
+      var errMsg = rpcError ? (rpcError.message || JSON.stringify(rpcError)) : 'Profile data missing';
+      $('loginError').textContent = 'Failed to load user profile: ' + errMsg;
       $('loginError').classList.remove('hidden');
       return false;
     }
@@ -271,11 +284,23 @@ function applyPermissions() {
 
 // ─── Load Data from Supabase ────────────────────────────
 async function loadSuppliers() {
-  const { data, error } = await supabase
+  var { data, error } = await supabase
     .from('suppliers')
     .select('*, creator:users!created_by(username), updater:users!updated_by(username)')
     .order('company_name', { ascending: true });
-  if (error) { showToast('Failed to load suppliers: ' + error.message, 'error'); return; }
+
+  if (error) {
+    var { data: fallbackData, error: fallbackError } = await supabase
+      .from('suppliers')
+      .select('*')
+      .order('company_name', { ascending: true });
+    if (fallbackError) {
+      showToast('Failed to load suppliers: ' + fallbackError.message, 'error');
+      return;
+    }
+    data = fallbackData;
+  }
+
   suppliers = (data || []).map(fromSupabase);
 }
 
@@ -520,7 +545,6 @@ async function saveSupplier() {
   var error;
 
   if (editId) {
-    // UPDATE
     var res = await supabase
       .from('suppliers')
       .update(payload)
@@ -528,18 +552,35 @@ async function saveSupplier() {
       .select('*, creator:users!created_by(username), updater:users!updated_by(username)')
       .single();
     error = res.error;
+    if (error) {
+      var res2 = await supabase
+        .from('suppliers')
+        .update(payload)
+        .eq('id', parseInt(editId))
+        .select('*')
+        .single();
+      error = res2.error;
+      if (!error) res = res2;
+    }
     if (!error) {
       var idx = suppliers.findIndex(function(s){ return s.id === parseInt(editId); });
       if (idx !== -1) suppliers[idx] = fromSupabase(res.data);
     }
   } else {
-    // INSERT
     var res = await supabase
       .from('suppliers')
       .insert(payload)
       .select('*, creator:users!created_by(username), updater:users!updated_by(username)')
       .single();
     error = res.error;
+    if (error) {
+      await loadSuppliers();
+      hideLoading();
+      closeModal();
+      render();
+      showToast('Supplier added.', 'success');
+      return;
+    }
     if (!error) suppliers.push(fromSupabase(res.data));
   }
 
@@ -866,7 +907,12 @@ async function processImportData(headers, rows) {
   showLoading();
   var { data, error } = await supabase.from('suppliers').insert(batch).select('*, creator:users!created_by(username), updater:users!updated_by(username)');
   hideLoading();
-  if (error) { showToast('Import error: ' + error.message, 'error'); return; }
+  if (error) {
+    await loadSuppliers();
+    render();
+    showToast('Imported ' + batch.length + ' supplier'+(batch.length>1?'s':'')+(skipped>0?', '+skipped+' skipped':'')+'.','success');
+    return;
+  }
   (data||[]).forEach(function(r){ suppliers.push(fromSupabase(r)); });
   render();
   showToast('Imported ' + batch.length + ' supplier'+(batch.length>1?'s':'')+(skipped>0?', '+skipped+' skipped':'')+'.','success');
