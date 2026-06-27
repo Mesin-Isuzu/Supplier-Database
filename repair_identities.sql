@@ -183,3 +183,11 @@ DELETE FROM public.users WHERE id IN (
   SELECT id FROM auth.users WHERE email IN ('editor@gmail.com', 'viewer@gmail.com')
 );
 DELETE FROM auth.users WHERE email IN ('editor@gmail.com', 'viewer@gmail.com');
+
+
+-- ============================================================
+-- 10. CHECK TRIGGER: Apakah handle_new_user trigger ada?
+-- ============================================================
+SELECT proname FROM pg_proc
+JOIN pg_namespace n ON pronamespace = n.oid
+WHERE n.nspname = 'public' AND proname = 'handle_new_user';
