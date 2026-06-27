@@ -232,3 +232,9 @@ FROM pg_proc p
 JOIN pg_namespace n ON p.pronamespace = n.oid
 WHERE p.proname LIKE '%create_user%' OR p.proname LIKE '%createuser%'
 ORDER BY n.nspname, p.proname;
+
+
+-- ============================================================
+-- 14. CHECK: Lihat isi admin_create_user_v2
+-- ============================================================
+SELECT pg_get_functiondef('public.admin_create_user_v2'::regproc);
