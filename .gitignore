@@ -16,3 +16,6 @@ Thumbs.db
 
 # Log files
 *.log
+
+# Migration backup (sudah dijalankan, tidak perlu di-deploy)
+migration_*.sql

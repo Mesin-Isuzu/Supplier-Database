@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS public.categories (
   name       TEXT        NOT NULL UNIQUE,
   bg_color   TEXT        NOT NULL DEFAULT '#f3e8ff',
   text_color TEXT        NOT NULL DEFAULT '#5b21b6',
+  is_active  BOOLEAN     NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -205,7 +206,7 @@ CREATE POLICY "users_select_admin" ON public.users
 
 -- Admin bisa insert user baru (juga digunakan oleh trigger handle_new_user via SECURITY DEFINER)
 CREATE POLICY "users_insert_trigger" ON public.users
-  FOR INSERT WITH CHECK (true);  -- Trigger pakai SECURITY DEFINER, by-pass RLS
+  FOR INSERT WITH CHECK (public.is_admin(auth.uid()));
 
 -- Admin bisa update role & username user lain
 CREATE POLICY "users_update_admin" ON public.users
@@ -452,7 +453,7 @@ BEGIN
       u.id,
       u.username,
       u.role,
-      a.email,
+      a.email::TEXT,
       u.created_at
     FROM public.users u
     JOIN auth.users a ON a.id = u.id
@@ -461,6 +462,195 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION public.get_users_with_email() TO authenticated;
+
+-- ── 8.6 admin_delete_user() ─────────────────────────────
+CREATE OR REPLACE FUNCTION public.admin_delete_user(target_user_id UUID)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+BEGIN
+  IF NOT public.is_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'Access denied: only admins can delete users.';
+  END IF;
+  DELETE FROM auth.users WHERE id = target_user_id;
+  RETURN jsonb_build_object('success', true);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.admin_delete_user(UUID) TO authenticated;
+
+-- ── 8.7 admin_create_user() ─────────────────────────────
+CREATE OR REPLACE FUNCTION public.admin_create_user(
+  user_email TEXT,
+  user_password TEXT,
+  user_username TEXT,
+  user_role TEXT
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = 'extensions', 'public', 'auth'
+AS $$
+DECLARE
+  new_id UUID;
+  encrypted_pw TEXT;
+BEGIN
+  IF NOT public.is_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'Access denied: only admins can create users.';
+  END IF;
+
+  -- Validasi duplikasi
+  IF EXISTS (SELECT 1 FROM auth.users WHERE email = LOWER(user_email)) THEN
+    RAISE EXCEPTION 'Email already registered.';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.users WHERE username = user_username) THEN
+    RAISE EXCEPTION 'Username already taken.';
+  END IF;
+
+  new_id := gen_random_uuid();
+  encrypted_pw := crypt(user_password, gen_salt('bf', 10));
+
+  -- Lowercase email untuk konsistensi dengan pencarian GoTrue
+  user_email := LOWER(user_email);
+
+  INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, confirmation_sent_at, email_change_confirm_status, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, instance_id, aud, role, is_sso_user, is_anonymous)
+  VALUES (
+    new_id, user_email, encrypted_pw, NOW(), NULL, 0,
+    '{"provider":"email","providers":["email"]}',
+    jsonb_build_object('username', user_username, 'app_role', user_role),
+    NOW(), NOW(), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+    false, false
+  );
+
+  INSERT INTO public.users (id, username, role) VALUES (new_id, user_username, user_role)
+  ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role;
+
+  -- Buat identity record (id terpisah dari user_id)
+  BEGIN
+    INSERT INTO auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+    VALUES (
+      gen_random_uuid(),
+      user_email,
+      new_id,
+      jsonb_build_object('email', user_email, 'sub', new_id::TEXT),
+      'email',
+      NOW(),
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT DO NOTHING;
+  EXCEPTION WHEN OTHERS THEN
+  END;
+
+  RETURN jsonb_build_object('success', true, 'user_id', new_id);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.admin_create_user(TEXT, TEXT, TEXT, TEXT) TO authenticated;
+
+-- ── 8.8 confirm_user_email() ─────────────────────────────
+-- Confirm email untuk user yang dibuat via signUp (bypass email confirmation).
+CREATE OR REPLACE FUNCTION public.confirm_user_email(target_email TEXT)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+BEGIN
+  IF NOT public.is_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'Access denied: only admins can confirm users.';
+  END IF;
+
+  UPDATE auth.users
+  SET email_confirmed_at = NOW(),
+      raw_app_meta_data = '{"provider":"email","providers":["email"]}'
+  WHERE email = target_email AND email_confirmed_at IS NULL;
+
+  RETURN jsonb_build_object('success', true);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.confirm_user_email(TEXT) TO authenticated;
+
+
+-- ── 8.9 get_login_email() ─────────────────────────────────
+-- Return email untuk username yang diberikan.
+-- Digunakan untuk username-based login.
+CREATE OR REPLACE FUNCTION public.get_login_email(p_username TEXT)
+RETURNS TEXT
+LANGUAGE sql SECURITY DEFINER
+SET search_path = 'public', 'auth'
+AS $$
+  SELECT au.email
+  FROM auth.users au
+  JOIN public.users pu ON pu.id = au.id
+  WHERE LOWER(pu.username) = LOWER(p_username);
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_login_email(TEXT) TO anon, authenticated;
+
+
+-- ── 8.10 check_user_duplicate() ─────────────────────────────
+-- Cek apakah email atau username sudah terdaftar.
+-- Dipanggil sebelum signUp untuk validasi duplikasi.
+CREATE OR REPLACE FUNCTION public.check_user_duplicate(
+  p_email TEXT,
+  p_username TEXT
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = 'public', 'auth'
+AS $$
+DECLARE
+  email_exists BOOLEAN;
+  username_exists BOOLEAN;
+BEGIN
+  SELECT EXISTS (SELECT 1 FROM auth.users WHERE email = LOWER(p_email)) INTO email_exists;
+  SELECT EXISTS (SELECT 1 FROM public.users WHERE username = p_username) INTO username_exists;
+
+  RETURN jsonb_build_object('email_exists', email_exists, 'username_exists', username_exists);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_user_duplicate(TEXT, TEXT) TO authenticated;
+
+
+-- ── 8.11 ensure_user_profile() ─────────────────────────────
+-- Upsert row di public.users. Dipakai saat user login tapi
+-- profile-nya belum ada (misal user dibuat via Supabase dashboard).
+-- User pertama otomatis jadi Admin.
+CREATE OR REPLACE FUNCTION public.ensure_user_profile(
+  p_user_id UUID,
+  p_username TEXT,
+  p_role TEXT DEFAULT 'Viewer'
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = 'public'
+AS $$
+DECLARE
+  rec RECORD;
+  user_count INT;
+  final_role TEXT;
+BEGIN
+  IF auth.uid() != p_user_id AND NOT public.is_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'Access denied: you can only update your own profile.';
+  END IF;
+
+  SELECT COUNT(*) INTO user_count FROM public.users;
+  IF user_count = 0 THEN
+    final_role := 'Admin';
+  ELSE
+    final_role := p_role;
+  END IF;
+
+  INSERT INTO public.users (id, username, role)
+  VALUES (p_user_id, p_username, final_role)
+  ON CONFLICT (id) DO UPDATE SET
+    username = EXCLUDED.username,
+    role = COALESCE(NULLIF(public.users.role, 'Viewer'), EXCLUDED.role)
+  RETURNING id, username, role INTO rec;
+
+  RETURN jsonb_build_object('id', rec.id, 'username', rec.username, 'role', rec.role);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.ensure_user_profile(UUID, TEXT, TEXT) TO authenticated;
 
 
 -- ============================================================
@@ -541,11 +731,16 @@ BEGIN
   IF user_count = 0 THEN
     assigned_role := 'Admin';
   ELSE
-    assigned_role := 'Viewer';
+    -- Gunakan role dari metadata jika disediakan
+    assigned_role := NEW.raw_user_meta_data->>'app_role';
+    IF assigned_role IS NULL OR assigned_role NOT IN ('Admin', 'Editor', 'Viewer') THEN
+      assigned_role := 'Viewer';
+    END IF;
   END IF;
 
   INSERT INTO public.users (id, username, role)
-  VALUES (NEW.id, new_username, assigned_role);
+  VALUES (NEW.id, new_username, assigned_role)
+  ON CONFLICT (id) DO NOTHING;
 
   RETURN NEW;
 END;
@@ -602,3 +797,44 @@ INSERT INTO public.categories (name, bg_color, text_color) VALUES
   ('Chemical & Oil',            '#fce7f3', '#9d174d'),
   ('Cutting Tool & Accecories', '#dbeafe', '#1e40af')
 ON CONFLICT (name) DO NOTHING;
+
+-- ============================================================
+-- 13. MIGRASI: Tambahkan identity & app_meta_data untuk user
+--     existing yang dibuat sebelum fix admin_create_user.
+--     Jalankan ONCE setelah update function admin_create_user.
+-- ============================================================
+DO $$
+DECLARE
+  rec RECORD;
+BEGIN
+  FOR rec IN
+    SELECT u.id, u.email
+    FROM auth.users u
+    WHERE u.raw_app_meta_data IS NULL
+       OR u.raw_app_meta_data = '{}'::jsonb
+  LOOP
+    -- Update raw_app_meta_data jika kosong
+    UPDATE auth.users
+    SET raw_app_meta_data = '{"provider":"email","providers":["email"]}'
+    WHERE id = rec.id
+      AND (raw_app_meta_data IS NULL OR raw_app_meta_data = '{}'::jsonb);
+
+    -- Hapus identity lama (jika id = email) lalu buat baru dengan id = UUID
+    BEGIN
+      DELETE FROM auth.identities WHERE user_id = rec.id AND id = rec.email;
+    EXCEPTION WHEN OTHERS THEN
+    END;
+
+    BEGIN
+      INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+      VALUES (
+        rec.id::TEXT, rec.id,
+        jsonb_build_object('email', rec.email, 'sub', rec.id::TEXT),
+        'email', NOW(), NOW(), NOW()
+      )
+      ON CONFLICT (provider, id) DO NOTHING;
+    EXCEPTION WHEN OTHERS THEN
+    END;
+  END LOOP;
+END;
+$$;

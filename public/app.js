@@ -1,0 +1,1249 @@
+var SUPABASE_URL = 'https://fjlrnizploxubxkotrin.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqbHJuaXpwbG94dWJ4a290cmluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMTcyNDUsImV4cCI6MjA5Nzg5MzI0NX0.PHjQvOh7tbObp-bYZmGDD8unI-fLS2U64rgduVFSZ7k';
+
+var supabase = null;
+var _supabaseInitPromise = null;
+
+async function initSupabase() {
+  if (supabase) return;
+  if (_supabaseInitPromise) return _supabaseInitPromise;
+  _supabaseInitPromise = (async function() {
+    try {
+      var mod = await import('https://esm.sh/@supabase/supabase-js@2');
+      supabase = mod.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch (e) {
+      console.error('Supabase init failed:', e);
+      $('loginError').textContent = 'Supabase SDK failed to load: ' + e.message;
+      $('loginError').classList.remove('hidden');
+    }
+  })();
+  return _supabaseInitPromise;
+}
+
+// ─── Helpers ────────────────────────────────────────────
+function $(id) { return document.getElementById(id); }
+function escHtml(s) {
+  if (!s) return '';
+  return s.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+function csvEsc(v) {
+  var s = (v || '').toString();
+  if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1)
+    return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function showToast(m, t, d) {
+  var e = $('toast');
+  e.className = 'toast px-5 py-3 rounded-xl shadow-2xl text-sm font-medium text-white flex items-center gap-2 ' + (t === 'success' ? 'bg-green-600' : t === 'warning' ? 'bg-amber-500' : 'bg-red-600');
+  e.innerHTML = '<i class="fas ' + (t === 'success' ? 'fa-check-circle' : t === 'warning' ? 'fa-exclamation-circle' : 'fa-exclamation-circle') + '"></i> ' + m;
+  e.classList.remove('hidden');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(function () { e.classList.add('hidden'); }, d || 3500);
+}
+function showLoading() { $('loadingOverlay').style.display = 'flex'; }
+function hideLoading() { $('loadingOverlay').style.display = 'none'; }
+function downloadFile(c, f, m) {
+  var b = new Blob([c], { type: m + ';charset=utf-8' }), u = URL.createObjectURL(b), a = document.createElement('a');
+  a.href = u; a.download = f; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+}
+
+// ─── State ─────────────────────────────────────────────
+var suppliers = [], currentPage = 1, pageSize = 10;
+var sortColumn = null, sortAsc = true;
+var deleteTargetId = null;
+var currentUser = null;
+var CATEGORIES = [];
+var CATEGORY_COLORS = {};
+var CATEGORY_TEXT_COLORS = {};
+var CATEGORY_PALETTE = [
+  {bg:'#dbeafe',text:'#1e40af'},{bg:'#fce7f3',text:'#9d174d'},{bg:'#e0e7ff',text:'#3730a3'},{bg:'#d1fae5',text:'#065f46'},
+  {bg:'#fef3c7',text:'#92400e'},{bg:'#f3e8ff',text:'#5b21b6'},{bg:'#ffedd5',text:'#9a3412'},{bg:'#f0fdf4',text:'#166534'},
+  {bg:'#fef2f2',text:'#991b1b'},{bg:'#fdf2f8',text:'#9d174d'},{bg:'#ecfeff',text:'#155e75'},{bg:'#f5f3ff',text:'#5b21b6'}
+];
+var paletteIdx = 0;
+
+// ─── Field Mapper (camelCase ↔ snake_case) ───────────────
+function toSupabase(s) {
+  return {
+    company_name:   s.companyName   || '',
+    contact_person: s.contactPerson || '',
+    phone:          s.phone         || '',
+    email:          s.email         || '',
+    website:        s.website       || '',
+    address:        s.address       || '',
+    location:       s.location      || '',
+    categories:     s.categories    || [],
+    products:       (s.products || []).map(function(p) {
+      return typeof p === 'string' ? {name:p, image:'', category:''} : p;
+    }),
+    status:         s.status        || 'Active',
+    notes:          s.notes         || ''
+  };
+}
+function fromSupabase(r) {
+  return {
+    id:            r.id,
+    companyName:   r.company_name,
+    contactPerson: r.contact_person,
+    phone:         r.phone,
+    email:         r.email         || '',
+    website:       r.website       || '',
+    address:       r.address       || '',
+    location:      r.location      || '',
+    categories:    Array.isArray(r.categories) ? r.categories : [],
+    products:      Array.isArray(r.products)   ? r.products   : [],
+    status:        r.status,
+    notes:         r.notes         || '',
+    created_at:    r.created_at,
+    updated_at:    r.updated_at,
+    created_by:    r.created_by,
+    updated_by:    r.updated_by,
+    creatorUsername: r.creator ? r.creator.username : null,
+    updaterUsername: r.updater ? r.updater.username : null
+  };
+}
+
+// ─── Auth ───────────────────────────────────────────────
+async function handleLogin() {
+  if (!supabase) {
+    $('loginError').textContent = 'Supabase is still loading. Please wait...';
+    $('loginError').classList.remove('hidden');
+    return;
+  }
+  var loginInput = $('loginUsername').value.trim().toLowerCase();
+  var password   = $('loginPassword').value.trim();
+  $('loginError').classList.add('hidden');
+  if (!loginInput || !password) {
+    $('loginError').textContent = 'Please enter username/email and password.';
+    $('loginError').classList.remove('hidden');
+    return;
+  }
+  $('loginBtn').disabled = true;
+  $('loginBtn').innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Signing in...';
+
+  var email = loginInput;
+  if (loginInput.indexOf('@') === -1) {
+    var { data: emailData, error: emailError } = await supabase.rpc('get_login_email', { p_username: loginInput });
+    if (emailError || !emailData) {
+      $('loginBtn').disabled = false;
+      $('loginBtn').innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Sign In';
+      $('loginError').textContent = 'Invalid username or password.';
+      $('loginError').classList.remove('hidden');
+      return;
+    }
+    email = emailData;
+  }
+
+  await supabase.auth.signOut();
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email: email, password });
+
+  $('loginBtn').disabled = false;
+  $('loginBtn').innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Sign In';
+
+  if (error) {
+    $('loginError').textContent = error.message || 'Login failed. Check your credentials.';
+    $('loginError').classList.remove('hidden');
+    return;
+  }
+
+  if (data.user) {
+    var ok = await loadUserProfile(data.user.id);
+    if (ok) await onLoginSuccess();
+  }
+}
+
+async function handleLogout() {
+  await supabase.auth.signOut();
+  currentUser = null;
+  suppliers = [];
+  $('appContent').classList.remove('active');
+  $('loginPage').classList.remove('hidden');
+  $('loginPage').classList.add('active');
+  $('loginUsername').value = '';
+  $('loginPassword').value = '';
+  $('loginError').classList.add('hidden');
+}
+
+async function checkSession() {
+  if (!supabase) {
+    $('loginPage').classList.remove('hidden');
+    $('loginPage').classList.add('active');
+    $('loginError').textContent = 'Cannot connect to Supabase. Check your internet connection or Supabase project status.';
+    $('loginError').classList.remove('hidden');
+    return false;
+  }
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session?.user) {
+      $('loginPage').classList.remove('hidden');
+      $('loginPage').classList.add('active');
+      return false;
+    }
+    await loadUserProfile(session.user.id);
+    if (!currentUser) return false;
+    await onLoginSuccess();
+    return true;
+  } catch (e) {
+    $('loginPage').classList.remove('hidden');
+    $('loginPage').classList.add('active');
+    $('loginError').textContent = 'Connection error: ' + e.message;
+    $('loginError').classList.remove('hidden');
+    return false;
+  }
+}
+
+async function loadUserProfile(userId) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, username, role')
+    .eq('id', userId)
+    .single();
+
+  if (error || !data) {
+    var email = (await supabase.auth.getUser()).data.user?.email || '';
+    var username = email ? email.split('@')[0] : 'user_' + userId.substring(0, 8);
+
+    var { data: rpcData, error: rpcError } = await supabase.rpc('ensure_user_profile', {
+      p_user_id: userId,
+      p_username: username,
+      p_role: 'Viewer'
+    });
+    if (rpcError || !rpcData?.id) {
+      console.error('Error creating user profile:', rpcError);
+      await supabase.auth.signOut();
+      $('loginPage').classList.remove('hidden');
+      $('loginPage').classList.add('active');
+      $('loginError').textContent = 'Failed to load user profile. Please contact admin.';
+      $('loginError').classList.remove('hidden');
+      return false;
+    }
+    currentUser = { id: rpcData.id, username: rpcData.username, role: rpcData.role };
+    return true;
+  }
+
+  currentUser = { id: data.id, username: data.username, role: data.role };
+  return true;
+}
+
+async function onLoginSuccess() {
+  $('loginPage').classList.add('hidden');
+  $('loginPage').classList.remove('active');
+  $('appContent').classList.add('active');
+  applyPermissions();
+  updateNavbar();
+  showLoading();
+  await Promise.all([loadCategories(), loadSuppliers()]);
+  hideLoading();
+  render();
+  showToast('Welcome, ' + currentUser.username + '!', 'success');
+}
+
+function updateNavbar() {
+  if (!currentUser) return;
+  $('navUsername').textContent = currentUser.username;
+  $('navUsername').classList.remove('hidden');
+  var rc = { 'Admin': 'bg-purple-100 text-purple-700', 'Editor': 'bg-blue-100 text-blue-700', 'Viewer': 'bg-gray-100 text-gray-700' };
+  $('navRole').textContent = currentUser.role;
+  $('navRole').className = 'text-xs px-2 py-0.5 rounded-full ' + (rc[currentUser.role] || 'bg-gray-100 text-gray-700');
+  $('navRole').classList.remove('hidden');
+  $('logoutBtn').classList.remove('hidden');
+}
+
+function applyPermissions() {
+  var role = currentUser ? currentUser.role : 'Viewer';
+  var canEdit  = (role === 'Admin' || role === 'Editor');
+  var canDelete = (role === 'Admin');
+  var isAdmin   = (role === 'Admin');
+  window.__canEdit   = canEdit;
+  window.__canDelete = canDelete;
+
+  var show = function(id, visible) {
+    var el = $(id); if (!el) return;
+    if (visible) el.classList.remove('hidden'); else el.classList.add('hidden');
+  };
+  show('addSupplierBtn', canEdit);
+  show('importBtn',      canEdit);
+  show('templateBtn',    canEdit);
+  show('manageUsersBtn',      isAdmin);
+  show('manageCategoriesBtn', isAdmin);
+}
+
+// ─── Load Data from Supabase ────────────────────────────
+async function loadSuppliers() {
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('*, creator:users!created_by(username), updater:users!updated_by(username)')
+    .order('company_name', { ascending: true });
+  if (error) { showToast('Failed to load suppliers: ' + error.message, 'error'); return; }
+  suppliers = (data || []).map(fromSupabase);
+}
+
+async function loadCategories() {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('is_active', true)
+    .order('name', { ascending: true });
+  if (error) { showToast('Failed to load categories: ' + error.message, 'error'); return; }
+  CATEGORIES = [];
+  CATEGORY_COLORS = {};
+  CATEGORY_TEXT_COLORS = {};
+  (data || []).forEach(function(c) {
+    CATEGORIES.push(c.name);
+    CATEGORY_COLORS[c.name]      = c.bg_color;
+    CATEGORY_TEXT_COLORS[c.name] = c.text_color;
+  });
+  populateCategoryFilter();
+  $('statCategories').textContent = CATEGORIES.length;
+}
+
+function populateCategoryFilter() {
+  var sel = $('filterCategory');
+  var prev = sel.value;
+  sel.innerHTML = '<option value="">All Categories</option>';
+  CATEGORIES.forEach(function(c) {
+    var o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    if (c === prev) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+// ─── Render Table ───────────────────────────────────────
+function getFilteredSorted() {
+  var q   = ($('searchInput').value || '').toLowerCase();
+  var st  = $('filterStatus').value;
+  var cat = $('filterCategory').value;
+
+   var list = suppliers.filter(function(s) {
+    var matchQ = !q;
+    if (q) {
+      var productStr = (s.products||[]).map(function(p){
+        return (typeof p==='string' ? p : p.name||'') + ' ' + (p.category||'');
+      }).join(' ').toLowerCase();
+      matchQ = s.companyName.toLowerCase().includes(q) ||
+               (s.contactPerson||'').toLowerCase().includes(q) ||
+               (s.phone||'').toLowerCase().includes(q) ||
+               (s.email||'').toLowerCase().includes(q) ||
+               productStr.includes(q);
+    }
+    var matchSt = !st  || s.status === st;
+    var matchCt = !cat || (s.categories||[]).includes(cat);
+    return matchQ && matchSt && matchCt;
+  });
+
+  if (sortColumn) {
+    list.sort(function(a, b) {
+      var av = (a[sortColumn]||'').toString().toLowerCase();
+      var bv = (b[sortColumn]||'').toString().toLowerCase();
+      if (av < bv) return sortAsc ? -1 : 1;
+      if (av > bv) return sortAsc ?  1 : -1;
+      return 0;
+    });
+  }
+  return list;
+}
+
+function render() {
+  var list = getFilteredSorted();
+  var total = list.length;
+  var pages = Math.max(1, Math.ceil(total / pageSize));
+  if (currentPage > pages) currentPage = pages;
+  var start = (currentPage - 1) * pageSize;
+  var page  = list.slice(start, start + pageSize);
+
+  $('statTotal').textContent    = suppliers.length;
+  $('statActive').textContent   = suppliers.filter(function(s){return s.status==='Active';}).length;
+  $('statCategories').textContent = CATEGORIES.length;
+
+  var tbody = $('tableBody');
+  if (!page.length) {
+    tbody.innerHTML = '';
+    $('emptyState').classList.remove('hidden');
+    $('paginationBar').style.display = 'none';
+    return;
+  }
+  $('emptyState').classList.add('hidden');
+  $('paginationBar').style.display = '';
+
+  tbody.innerHTML = page.map(function(s) {
+    var cats = (s.categories||[]).map(function(c){
+      var bg = CATEGORY_COLORS[c]||'#f3e8ff', tx = CATEGORY_TEXT_COLORS[c]||'#5b21b6';
+      return '<span class="category-badge" style="background:'+bg+';color:'+tx+'">'+escHtml(c)+'</span>';
+    }).join('');
+
+    var prods = (s.products||[]).slice(0,3).map(function(p){
+      return '<span class="product-tag">'+escHtml(typeof p==='string'?p:p.name)+'</span>';
+    }).join('');
+    if ((s.products||[]).length > 3) prods += '<span class="product-tag">+'+(s.products.length-3)+' more</span>';
+
+    var statusCls = s.status==='Active'
+      ? 'bg-green-100 text-green-700'
+      : 'bg-gray-100 text-gray-500';
+
+    var actions = '<button onclick="openDetailModal('+s.id+')" title="View" class="text-indigo-600 hover:text-indigo-800 mx-1"><i class="fas fa-eye"></i></button>';
+    if (window.__canEdit)   actions += '<button onclick="openEditModal('+s.id+')" title="Edit" class="text-yellow-500 hover:text-yellow-700 mx-1"><i class="fas fa-edit"></i></button>';
+    if (window.__canDelete) actions += '<button onclick="openDeleteModal('+s.id+')" title="Delete" class="text-red-500 hover:text-red-700 mx-1"><i class="fas fa-trash"></i></button>';
+
+    return '<tr class="table-row-hover border-b border-gray-100">' +
+      '<td class="px-4 py-3 font-medium">'+escHtml(s.companyName)+'</td>' +
+      '<td class="px-4 py-3 text-gray-600">'+escHtml(s.contactPerson)+'<br><span class="text-xs text-gray-400">'+escHtml(s.phone)+'</span></td>' +
+      '<td class="px-4 py-3 text-gray-600">'+escHtml(s.phone)+'</td>' +
+      '<td class="px-4 py-3">'+cats+'</td>' +
+      '<td class="px-4 py-3">'+prods+'</td>' +
+      '<td class="px-4 py-3 text-center"><span class="text-xs font-medium px-2 py-1 rounded-full '+statusCls+'">'+s.status+'</span></td>' +
+      '<td class="px-4 py-3 text-center">'+actions+'</td>' +
+      '</tr>';
+  }).join('');
+
+  renderPagination(total, pages);
+}
+
+function renderPagination(total, pages) {
+  $('paginationInfo').textContent = 'Showing ' + Math.min(total, (currentPage-1)*pageSize+1) + '–' + Math.min(total, currentPage*pageSize) + ' of ' + total;
+  var btns = '';
+  btns += '<button class="pagination-btn rounded-l-lg" onclick="goPage('+(currentPage-1)+')" '+(currentPage===1?'disabled':'')+'>‹</button>';
+  for (var i = 1; i <= pages; i++) {
+    if (pages > 7 && Math.abs(i - currentPage) > 2 && i !== 1 && i !== pages) {
+      if (i === currentPage - 3 || i === currentPage + 3) btns += '<button class="pagination-btn" disabled>…</button>';
+      continue;
+    }
+    btns += '<button class="pagination-btn'+(i===currentPage?' active':'')+'" onclick="goPage('+i+')">'+i+'</button>';
+  }
+  btns += '<button class="pagination-btn rounded-r-lg" onclick="goPage('+(currentPage+1)+')" '+(currentPage===pages?'disabled':'')+'>›</button>';
+  $('paginationButtons').innerHTML = btns;
+}
+
+function goPage(p) {
+  var pages = Math.max(1, Math.ceil(getFilteredSorted().length / pageSize));
+  if (p < 1 || p > pages) return;
+  currentPage = p;
+  render();
+}
+
+function onSearch() { currentPage = 1; render(); }
+
+function sortBy(col) {
+  document.querySelectorAll('.sort-icon').forEach(function(el){ el.classList.remove('active'); });
+  if (sortColumn === col) { sortAsc = !sortAsc; } else { sortColumn = col; sortAsc = true; }
+  var icon = $('sort-' + col);
+  if (icon) { icon.classList.add('active'); icon.className = icon.className.replace('fa-sort', sortAsc ? 'fa-sort-up' : 'fa-sort-down'); }
+  render();
+}
+
+// ─── Add / Edit Supplier ────────────────────────────────
+function openAddModal() {
+  $('editId').value = '';
+  $('modalTitle').textContent = 'Add Supplier';
+  $('fCompanyName').value = '';
+  $('fContactPerson').value = '';
+  $('fPhone').value = '';
+  $('fEmail').value = '';
+  $('fWebsite').value = '';
+  $('fAddress').value = '';
+  $('fLocation').value = '';
+  $('fStatus').value = 'Active';
+  $('fNotes').value = '';
+  $('productsList').innerHTML = '';
+  $('addEditModal').classList.remove('hidden');
+  $('addEditModal').classList.add('flex');
+}
+
+function openEditModal(id) {
+  var s = suppliers.find(function(x){ return x.id === id; });
+  if (!s) return;
+  $('editId').value = s.id;
+  $('modalTitle').textContent = 'Edit Supplier';
+  $('fCompanyName').value  = s.companyName  || '';
+  $('fContactPerson').value = s.contactPerson || '';
+  $('fPhone').value    = s.phone    || '';
+  $('fEmail').value    = s.email    || '';
+  $('fWebsite').value  = s.website  || '';
+  $('fAddress').value  = s.address  || '';
+  $('fLocation').value = s.location || '';
+  $('fStatus').value   = s.status   || 'Active';
+  $('fNotes').value    = s.notes    || '';
+  $('productsList').innerHTML = '';
+  (s.products||[]).forEach(function(p){ addProductField(p); });
+  $('addEditModal').classList.remove('hidden');
+  $('addEditModal').classList.add('flex');
+}
+
+function closeModal() {
+  $('addEditModal').classList.add('hidden');
+  $('addEditModal').classList.remove('flex');
+}
+
+async function saveSupplier() {
+  var companyName   = $('fCompanyName').value.trim();
+  var contactPerson = $('fContactPerson').value.trim();
+  var phone         = $('fPhone').value.trim();
+  if (!companyName || !contactPerson || !phone) {
+    showToast('Company Name, Contact Person, and Phone are required.', 'error');
+    return;
+  }
+
+  // Collect products from table rows
+  var productRows = $('productsList').querySelectorAll('tr');
+  var products = [];
+  productRows.forEach(function(tr) {
+    var inputs  = tr.querySelectorAll('input[type="text"]');
+    var selects = tr.querySelectorAll('select');
+    var name    = inputs[0] ? inputs[0].value.trim() : '';
+    var cat     = selects[0] ? selects[0].value : '';
+    var img     = inputs[1] ? inputs[1].value.trim() : '';
+    if (name) products.push({ name: name, category: cat, image: img });
+  });
+
+  // Derive categories from products
+  var catSet = {};
+  products.forEach(function(p){ if(p.category) catSet[p.category] = true; });
+  var categories = Object.keys(catSet);
+
+  var payload = {
+    company_name:   companyName,
+    contact_person: contactPerson,
+    phone:          phone,
+    email:          $('fEmail').value.trim(),
+    website:        $('fWebsite').value.trim(),
+    address:        $('fAddress').value.trim(),
+    location:       $('fLocation').value.trim(),
+    categories:     categories,
+    products:       products,
+    status:         $('fStatus').value,
+    notes:          $('fNotes').value.trim()
+  };
+
+  showLoading();
+  var editId = $('editId').value;
+  var error;
+
+  if (editId) {
+    // UPDATE
+    var res = await supabase
+      .from('suppliers')
+      .update(payload)
+      .eq('id', parseInt(editId))
+      .select('*, creator:users!created_by(username), updater:users!updated_by(username)')
+      .single();
+    error = res.error;
+    if (!error) {
+      var idx = suppliers.findIndex(function(s){ return s.id === parseInt(editId); });
+      if (idx !== -1) suppliers[idx] = fromSupabase(res.data);
+    }
+  } else {
+    // INSERT
+    var res = await supabase
+      .from('suppliers')
+      .insert(payload)
+      .select('*, creator:users!created_by(username), updater:users!updated_by(username)')
+      .single();
+    error = res.error;
+    if (!error) suppliers.push(fromSupabase(res.data));
+  }
+
+  hideLoading();
+  if (error) {
+    showToast('Error saving supplier: ' + error.message, 'error');
+    return;
+  }
+  closeModal();
+  render();
+  showToast(editId ? 'Supplier updated.' : 'Supplier added.', 'success');
+}
+
+// ─── Delete Supplier ────────────────────────────────────
+function openDeleteModal(id) {
+  deleteTargetId = id;
+  $('deleteModal').classList.remove('hidden');
+  $('deleteModal').classList.add('flex');
+}
+function closeDeleteModal() {
+  deleteTargetId = null;
+  $('deleteModal').classList.add('hidden');
+  $('deleteModal').classList.remove('flex');
+}
+async function confirmDelete() {
+  if (!deleteTargetId) return;
+  showLoading();
+  var { error } = await supabase
+    .from('suppliers')
+    .delete()
+    .eq('id', deleteTargetId);
+  hideLoading();
+  if (error) {
+    showToast('Error deleting supplier: ' + error.message, 'error');
+    closeDeleteModal();
+    return;
+  }
+  suppliers = suppliers.filter(function(s){ return s.id !== deleteTargetId; });
+  closeDeleteModal();
+  render();
+  showToast('Supplier deleted.', 'success');
+}
+
+// ─── Detail Modal ───────────────────────────────────────
+function openDetailModal(id) {
+  var s = suppliers.find(function(x){ return x.id === id; });
+  if (!s) return;
+  var cats = (s.categories||[]).map(function(c){
+    var bg = CATEGORY_COLORS[c]||'#f3e8ff', tx = CATEGORY_TEXT_COLORS[c]||'#5b21b6';
+    return '<span class="category-badge" style="background:'+bg+';color:'+tx+'">'+escHtml(c)+'</span>';
+  }).join('');
+
+  var prodHTML = '';
+  (s.products||[]).forEach(function(p){
+    var name = typeof p==='string'?p:p.name;
+    var img  = typeof p==='object'?p.image:'';
+    var cat  = typeof p==='object'?p.category:'';
+    if (img) {
+      prodHTML += '<div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">' +
+        '<div class="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center flex-shrink-0 cursor-pointer" onclick="showImageLightbox(\''+escHtml(img)+'\',\''+escHtml(name)+'\')">'+
+        '<img src="'+escHtml(img)+'" alt="'+escHtml(name)+'" style="width:100%;height:100%;object-fit:cover" onerror="imgError(this)"></div>' +
+        '<div><div class="text-sm font-medium">'+escHtml(name)+'</div>' +
+        (cat?'<div class="text-xs text-gray-400">'+escHtml(cat)+'</div>':'') +
+        '</div></div>';
+    } else {
+      prodHTML += '<div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">' +
+        '<div class="w-12 h-12 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-300"><i class="fas fa-image"></i></div>' +
+        '<div><div class="text-sm font-medium">'+escHtml(name)+'</div>' +
+        (cat?'<div class="text-xs text-gray-400">'+escHtml(cat)+'</div>':'') +
+        '</div></div>';
+    }
+  });
+
+  var mapHTML = '';
+  if (s.location) {
+    var loc = s.location;
+    var q = loc;
+    // extract query from common Google Maps URL formats
+    var m = loc.match(/[?&]q=([^&]+)/);
+    if (m) q = decodeURIComponent(m[1]);
+    m = loc.match(/\/place\/([^\/@?]+)/);
+    if (m) q = decodeURIComponent(m[1].replace(/\+/g,' '));
+    var embedSrc = 'https://maps.google.com/maps?q=' + encodeURIComponent(q) + '&output=embed&z=12';
+    mapHTML = '<div class="mt-3"><div style="position:relative;width:100%;padding-bottom:28%;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb">' +
+      '<iframe src="'+escHtml(embedSrc)+'" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allowfullscreen loading="lazy"></iframe></div>' +
+      '<a href="'+escHtml(loc.match(/^https?:\/\//)?loc:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q))+'" target="_blank" rel="noopener" class="text-blue-600 hover:underline text-xs mt-1 inline-block"><i class="fas fa-external-link-alt mr-1"></i>Open in Google Maps</a></div>';
+  }
+
+  var auditHTML = '';
+  if (s.created_at) {
+    var createdTime = new Date(s.created_at).toLocaleString();
+    var creator = s.creatorUsername || 'System';
+    auditHTML += '<div class="text-xs text-gray-400 mt-4 border-t border-gray-100 pt-3">Created by <span class="font-medium text-gray-600">' + escHtml(creator) + '</span> on ' + createdTime;
+    if (s.updated_at && s.updated_at !== s.created_at) {
+      var updatedTime = new Date(s.updated_at).toLocaleString();
+      var updater = s.updaterUsername || 'System';
+      auditHTML += '<br>Last updated by <span class="font-medium text-gray-600">' + escHtml(updater) + '</span> on ' + updatedTime;
+    }
+    auditHTML += '</div>';
+  }
+
+  var h = '<div class="p-6 border-b border-gray-200 flex items-center justify-between">' +
+    '<h2 class="text-lg font-bold">'+escHtml(s.companyName)+'</h2>' +
+    '<button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 text-xl"><i class="fas fa-times"></i></button>' +
+    '</div><div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">' +
+    '<div class="space-y-3">' +
+    '<div><div class="text-xs text-gray-400 uppercase mb-1">Contact</div><div class="font-medium">'+escHtml(s.contactPerson)+'</div></div>' +
+    '<div><div class="text-xs text-gray-400 uppercase mb-1">Phone</div><div>'+escHtml(s.phone)+'</div></div>' +
+    (s.email?'<div><div class="text-xs text-gray-400 uppercase mb-1">Email</div><a href="mailto:'+escHtml(s.email)+'" class="text-indigo-600 hover:underline">'+escHtml(s.email)+'</a></div>':'') +
+    (s.website?'<div><div class="text-xs text-gray-400 uppercase mb-1">Website</div><a href="'+escHtml(s.website)+'" target="_blank" class="text-indigo-600 hover:underline">'+escHtml(s.website)+'</a></div>':'') +
+    (s.address?'<div><div class="text-xs text-gray-400 uppercase mb-1">Address</div><div>'+escHtml(s.address)+'</div></div>':'') +
+    '<div><div class="text-xs text-gray-400 uppercase mb-1">Status</div><span class="text-xs font-medium px-2 py-1 rounded-full '+(s.status==='Active'?'bg-green-100 text-green-700':'bg-gray-100 text-gray-500')+'">'+s.status+'</span></div>' +
+    '<div><div class="text-xs text-gray-400 uppercase mb-1">Categories</div>'+cats+'</div>' +
+    (s.notes?'<div><div class="text-xs text-gray-400 uppercase mb-1">Notes</div><div class="text-sm text-gray-600">'+escHtml(s.notes)+'</div></div>':'') +
+    auditHTML +
+    mapHTML +
+    '</div>' +
+    '<div><div class="text-xs text-gray-400 uppercase mb-2">Products ('+((s.products||[]).length)+')</div>' +
+    (prodHTML || '<div class="text-sm text-gray-400">No products listed.</div>') +
+    '</div></div>' +
+    '<div class="p-6 border-t border-gray-200 flex justify-end gap-3">';
+  if (window.__canEdit) h += '<button onclick="closeDetailModal();openEditModal('+s.id+')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"><i class="fas fa-edit mr-1"></i>Edit</button>';
+  h += '</div>';
+  $('detailContent').innerHTML = h;
+  $('detailModal').classList.remove('hidden');
+  $('detailModal').classList.add('flex');
+}
+
+function closeDetailModal() {
+  $('detailModal').classList.add('hidden');
+  $('detailModal').classList.remove('flex');
+}
+
+// ─── Image Lightbox ─────────────────────────────────────
+function showImageLightbox(src, name) {
+  $('lightboxImage').src = src;
+  $('lightboxCaption').textContent = name || '';
+  $('imageModal').classList.remove('hidden');
+  $('imageModal').classList.add('flex');
+}
+function closeImageModal(e) {
+  if (e && e.target !== e.currentTarget) return;
+  $('imageModal').classList.add('hidden');
+  $('imageModal').classList.remove('flex');
+  $('lightboxImage').src = '';
+}
+function imgError(el) {
+  var p = document.createElement('i');
+  p.className = 'fas fa-image';
+  p.style.cssText = 'font-size:2rem;color:#94a3b8';
+  el.parentNode.replaceChild(p, el);
+}
+
+// ─── Product Fields in Modal ────────────────────────────
+function addProductField(v) {
+  var tr  = document.createElement('tr');
+  var nm  = (typeof v==='object'&&v!==null) ? (v.name||'')  : (v||'');
+  var im  = (typeof v==='object'&&v!==null) ? (v.image||'') : '';
+  var cat = (typeof v==='object'&&v!==null) ? (v.category||'') : '';
+
+  var prev = im
+    ? '<img src="'+escHtml(im)+'" style="width:100%;height:100%;object-fit:cover" onerror="imgError(this)">'
+    : '<i class="fas fa-image"></i>';
+
+  var catOpts = '<option value="">Select category</option>';
+  CATEGORIES.forEach(function(c) {
+    catOpts += '<option value="'+escHtml(c)+'"'+(cat===c?' selected':'')+'>'+escHtml(c)+'</option>';
+  });
+
+  tr.innerHTML =
+    '<td class="px-2 py-2"><input type="text" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" placeholder="Product name" value="'+escHtml(nm)+'"></td>' +
+    '<td class="px-2 py-2"><select class="product-cat-select w-full border border-gray-300 rounded px-1 py-1 text-xs focus:ring-2 focus:ring-indigo-400 outline-none">'+catOpts+'</select></td>' +
+    '<td class="px-2 py-2"><div class="flex items-center gap-1"><input type="text" class="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" placeholder="Image URL" value="'+escHtml(im)+'" oninput="updateProductPreview(this)"><input type="file" accept="image/*" style="display:none" class="product-file-input" onchange="handleProductImageUpload(this)"><button type="button" onclick="this.previousElementSibling.click()" class="text-xs text-indigo-600 hover:text-indigo-800" title="Upload"><i class="fas fa-upload"></i></button></div></td>' +
+    '<td class="px-2 py-2 text-center"><div class="product-img-preview" style="width:40px;height:40px;border-radius:4px;overflow:hidden;border:1px solid #e2e8f0;margin:0 auto;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#94a3b8">'+prev+'</div></td>' +
+    '<td class="px-2 py-2 text-center"><button type="button" onclick="this.closest(\'tr\').remove()" class="text-gray-400 hover:text-red-500 transition"><i class="fas fa-times-circle"></i></button></td>';
+  $('productsList').appendChild(tr);
+}
+
+async function handleProductImageUpload(input) {
+  var file = input.files[0]; if (!file) return;
+  var row = input.closest('tr');
+  var textInputs = row.querySelectorAll('input[type="text"]');
+  var preview = row.querySelector('.product-img-preview');
+  
+  var originalPreview = preview ? preview.innerHTML : '<i class="fas fa-image"></i>';
+  if (preview) {
+    preview.innerHTML = '<i class="fas fa-spinner fa-spin text-indigo-600"></i>';
+  }
+
+  var ext = file.name.split('.').pop();
+  var cleanName = 'prod_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7) + '.' + ext;
+
+  const { data, error } = await supabase.storage
+    .from('product-images')
+    .upload(cleanName, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (error) {
+    if (preview) preview.innerHTML = originalPreview;
+    showToast('Image upload failed: ' + error.message, 'error');
+    input.value = '';
+    return;
+  }
+
+  const { data: urlData } = supabase.storage
+    .from('product-images')
+    .getPublicUrl(cleanName);
+
+  var publicUrl = urlData.publicUrl;
+  if (textInputs.length >= 2) textInputs[1].value = publicUrl;
+  if (preview) {
+    preview.innerHTML = '<img src="'+escHtml(publicUrl)+'" style="width:100%;height:100%;object-fit:cover">';
+  }
+  showToast('Image uploaded successfully.', 'success');
+  input.value = '';
+}
+
+function updateProductPreview(input) {
+  var row = input.closest('tr');
+  var preview = row.querySelector('.product-img-preview');
+  var url = input.value.trim();
+  if (url) preview.innerHTML = '<img src="'+escHtml(url)+'" style="width:100%;height:100%;object-fit:cover" onerror="imgError(this)">';
+  else preview.innerHTML = '<i class="fas fa-image"></i>';
+}
+
+// ─── Import / Export ────────────────────────────────────
+function handleImport(input) {
+  var file = input.files[0]; if (!file) return;
+  if (!window.__canEdit) { showToast('You do not have permission to import.', 'error'); input.value=''; return; }
+  var ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'csv') {
+    var reader = new FileReader();
+    reader.onload = function(e) { parseCSV(e.target.result); input.value=''; };
+    reader.readAsText(file);
+  } else if (ext==='xls'||ext==='xlsx') {
+    var reader = new FileReader();
+    reader.onload = function(e) { parseXLSX(new Uint8Array(e.target.result)); input.value=''; };
+    reader.readAsArrayBuffer(file);
+  } else {
+    showToast('Please select a CSV or Excel file.', 'error'); input.value='';
+  }
+}
+
+function parseCSV(text) {
+  var lines = text.split('\n');
+  if (lines.length < 2) { showToast('CSV file is empty or has no data rows.', 'error'); return; }
+  var headers = parseCSVRow(lines[0]);
+  var rows = [];
+  for (var i = 1; i < lines.length; i++) { var line=lines[i].trim(); if(line) rows.push(parseCSVRow(line)); }
+  processImportData(headers, rows);
+}
+
+function parseCSVRow(row) {
+  var result=[], current='', inQuotes=false;
+  for (var i=0; i<row.length; i++) {
+    var c=row[i];
+    if (inQuotes) { if(c==='"'){if(i+1<row.length&&row[i+1]==='"'){current+='"';i++;}else{inQuotes=false;}}else{current+=c;} }
+    else { if(c==='"'){inQuotes=true;}else if(c===','){result.push(current.trim());current='';}else{current+=c;} }
+  }
+  result.push(current.trim()); return result;
+}
+
+function parseXLSX(data) {
+  var wb=XLSX.read(data,{type:'array'}); var sheet=wb.Sheets[wb.SheetNames[0]];
+  var json=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+  if(json.length<2){showToast('Excel file is empty.','error');return;}
+  processImportData(json[0], json.slice(1).filter(function(r){return r.join('').trim();}));
+}
+
+async function processImportData(headers, rows) {
+  var hLower = headers.map(function(h){return h.toString().toLowerCase().trim();});
+  var colKeys = {
+    companyName:   ['company name','company','perusahaan','nama perusahaan','supplier'],
+    contactPerson: ['contact person','contact','pic','kontak','nama kontak'],
+    phone:         ['phone','telephone','telp','telepon','no telp','hp','no hp'],
+    email:         ['email','e-mail'],
+    website:       ['website','web','site'],
+    address:       ['address','alamat'],
+    location:      ['location','maps','google maps','lokasi','map'],
+    categories:    ['categories','category','kategori','cat'],
+    products:      ['products','product','produk','barang'],
+    status:        ['status'],
+    notes:         ['notes','note','keterangan','remark']
+  };
+  var map={};
+  for (var key in colKeys) {
+    for (var i=0; i<hLower.length; i++) {
+      for (var j=0; j<colKeys[key].length; j++) {
+        if (hLower[i].indexOf(colKeys[key][j]) !== -1) { map[key]=i; break; }
+      }
+      if (map[key]!==undefined) break;
+    }
+  }
+  if (map.companyName===undefined) { showToast('Could not find "Company Name" column.','error'); return; }
+
+  var batch=[], skipped=0;
+  rows.forEach(function(row) {
+    if(typeof row==='string') row=[row];
+    var cn=(row[map.companyName]||'').toString().trim(); if(!cn){skipped++;return;}
+    var cp=(map.contactPerson!==undefined?row[map.contactPerson]:'').toString().trim()||cn;
+    var ph=(map.phone!==undefined?row[map.phone]:'').toString().trim()||'-';
+    var categories=[];
+    if(map.categories!==undefined){var raw=(row[map.categories]||'').toString().trim();if(raw)categories=raw.split(/[,;\/]/).map(function(s){return s.trim();}).filter(Boolean);}
+    if(!categories.length) categories=['General Part'];
+    var defCat=categories[0];
+    var products=[];
+    if(map.products!==undefined){var pRaw=(row[map.products]||'').toString().trim();if(pRaw)pRaw.split(/[,;]/).forEach(function(n){n=n.trim();if(n)products.push({name:n,image:'',category:defCat});});}
+    var status=(map.status!==undefined?row[map.status]:'').toString().trim();
+    if(status!=='Active'&&status!=='Inactive') status='Active';
+    batch.push({
+      company_name:   cn, contact_person: cp, phone: ph,
+      email:          (map.email!==undefined?row[map.email]:'').toString().trim(),
+      website:        (map.website!==undefined?row[map.website]:'').toString().trim(),
+      address:        (map.address!==undefined?row[map.address]:'').toString().trim(),
+      location:       (map.location!==undefined?row[map.location]:'').toString().trim(),
+      categories:     categories, products: products, status: status,
+      notes:          (map.notes!==undefined?row[map.notes]:'').toString().trim()
+    });
+  });
+
+  if (!batch.length) { showToast('No valid rows found.', 'warning'); return; }
+  showLoading();
+  var { data, error } = await supabase.from('suppliers').insert(batch).select('*, creator:users!created_by(username), updater:users!updated_by(username)');
+  hideLoading();
+  if (error) { showToast('Import error: ' + error.message, 'error'); return; }
+  (data||[]).forEach(function(r){ suppliers.push(fromSupabase(r)); });
+  render();
+  showToast('Imported ' + batch.length + ' supplier'+(batch.length>1?'s':'')+(skipped>0?', '+skipped+' skipped':'')+'.','success');
+}
+
+function exportCSV() {
+  var hdrs=['Company Name','Contact Person','Phone','Email','Website','Address','Location','Categories','Products','Status','Notes'];
+  var rows = suppliers.map(function(s){
+    var prodStr=(s.products||[]).map(function(p){return typeof p==='string'?p:p.name;}).join(', ');
+    return [csvEsc(s.companyName),csvEsc(s.contactPerson),csvEsc(s.phone),csvEsc(s.email||''),
+            csvEsc(s.website||''),csvEsc(s.address||''),csvEsc(s.location||''),
+            csvEsc((s.categories||[]).join(', ')),csvEsc(prodStr),s.status,csvEsc(s.notes||'')];
+  });
+  var csv=hdrs.join(',')+'\\n'+rows.map(function(r){return r.join(',');}).join('\\n');
+  downloadFile(csv,'suppliers.csv','text/csv');
+  showToast('CSV exported!','success');
+}
+
+function downloadTemplate() {
+  var hdrs=['Company Name','Contact Person','Phone','Email','Website','Address','Location','Categories','Products','Status','Notes'];
+  var rows=[
+    ['PT Maju Jaya','Budi Santoso','021-5550123','budi@maju.co.id','https://maju.co.id','Jl. Gatot Subroto No.10','https://maps.google.com/?q=Jakarta','Raw Materials;Packaging','Steel Sheets;Aluminum Bars','Active','Long-term partner since 2020'],
+    ['CV Teknik Prima','Siti Rahma','022-7890456','siti@prima.com','','Jl. Asia Afrika No.45','','Electronics','PCB Assemblies;Microcontrollers','Active','ISO certified'],
+    ['UD Berkah Abadi','Ahmad Fauzi','0341-123456','ahmad@abadi.com','','Jl. Ijen No.7','','Stationery;General Part','Paper;Pens;Markers','Inactive','Minimum order 100 pcs']
+  ];
+  var csv=hdrs.map(csvEsc).join(',')+'\n';
+  rows.forEach(function(row){
+    csv+=row.map(csvEsc).join(',')+'\n';
+  });
+  downloadFile(csv,'template-import.csv','text/csv');
+  showToast('Template downloaded!','success');
+}
+
+// ─── Manage Users ───────────────────────────────────────
+async function openManageUsers() {
+  $('userModal').classList.remove('hidden');
+  $('userModal').classList.add('flex');
+  $('userTableBody').innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr>';
+
+  // Gunakan RPC get_users_with_email() agar email dari auth.users ikut tampil
+  const { data, error } = await supabase.rpc('get_users_with_email');
+
+  if (error) {
+    $('userTableBody').innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-red-400 text-sm">Error loading users: '+escHtml(error.message)+'</td></tr>';
+    return;
+  }
+
+  var rc = {'Admin':'bg-purple-100 text-purple-700','Editor':'bg-blue-100 text-blue-700','Viewer':'bg-gray-100 text-gray-700'};
+  var isAdmin = currentUser && currentUser.role === 'Admin';
+
+  $('userTableBody').innerHTML = (data||[]).map(function(u) {
+    var isSelf = currentUser && u.id === currentUser.id;
+    var roleSelect = '';
+    if (isAdmin && !isSelf) {
+      roleSelect =
+        '<div class="flex items-center gap-1">' +
+        '<select id="rolesel-'+u.id+'" class="border border-gray-200 rounded px-1 py-0.5 text-xs focus:ring-2 focus:ring-indigo-400 outline-none">' +
+        '<option value="Admin"'+(u.role==='Admin'?' selected':'')+'>Admin</option>' +
+        '<option value="Editor"'+(u.role==='Editor'?' selected':'')+'>Editor</option>' +
+        '<option value="Viewer"'+(u.role==='Viewer'?' selected':'')+'>Viewer</option>' +
+        '</select>' +
+        '<button onclick="saveUserRole(\''+u.id+'\')" class="text-xs text-indigo-600 hover:text-indigo-800 px-2 py-0.5 rounded border border-indigo-200 hover:bg-indigo-50 transition" title="Save role"><i class="fas fa-save"></i></button>' +
+        '</div>';
+    } else {
+      roleSelect = '<span class="text-xs px-2 py-0.5 rounded-full '+(rc[u.role]||'bg-gray-100 text-gray-700')+'">' + u.role + (isSelf?' <span class="opacity-60">(you)</span>':'') + '</span>';
+    }
+
+    return '<tr class="border-b border-gray-100 table-row-hover" id="userrow-'+u.id+'">' +
+      '<td class="px-3 py-2 text-sm font-medium">' + escHtml(u.username) + '</td>' +
+      '<td class="px-3 py-2 text-sm text-gray-500">' + escHtml(u.email || '—') + '</td>' +
+      '<td class="px-3 py-2" id="userrole-'+u.id+'">' + roleSelect + '</td>' +
+      '<td class="px-3 py-2 text-center">' +
+        (isAdmin && !isSelf ? '<button onclick="deleteUser(\''+u.id+'\')" class="text-xs text-red-500 hover:text-red-700 px-2 py-0.5 rounded border border-red-200 hover:bg-red-50 transition" title="Delete user"><i class="fas fa-trash"></i></button>' : '') +
+      '</td>' +
+      '</tr>';
+  }).join('') || '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm">No users found.</td></tr>';
+}
+
+async function saveUserRole(userId) {
+  var sel = $('rolesel-' + userId);
+  if (!sel) return;
+  var newRole = sel.value;
+  sel.disabled = true;
+
+  const { data, error } = await supabase.rpc('update_user_role', {
+    target_user_id: userId,
+    new_role: newRole
+  });
+
+  sel.disabled = false;
+
+  if (error || (data && data.success === false)) {
+    var msg = error ? error.message : (data && data.error) || 'Unknown error';
+    showToast('Failed to update role: ' + msg, 'error');
+    return;
+  }
+
+  showToast('Role updated to ' + newRole + '.', 'success');
+  // Refresh user list
+  await openManageUsers();
+}
+
+async function deleteUser(userId) {
+  if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+  showLoading();
+  try {
+    var { data, error } = await supabase.rpc('admin_delete_user', { target_user_id: userId });
+    if (error) { showToast('Error: ' + error.message, 'error'); return; }
+    showToast('User deleted.', 'success');
+    await openManageUsers();
+  } catch (e) {
+    showToast('Error: ' + (e.message || 'Unknown error'), 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function addUser() {
+  try {
+    var username = $('fNewUserUsername').value.trim();
+    var email    = $('fNewUserEmail').value.trim();
+    var password = $('fNewUserPassword').value.trim();
+    var role     = $('fNewUserRole').value;
+    if (!username || !email || !password) { showToast('Please fill all fields.', 'error'); return; }
+    $('fNewUserUsername').value = ''; $('fNewUserEmail').value = ''; $('fNewUserPassword').value = '';
+    showLoading();
+
+    var { data: dupData, error: dupError } = await supabase.rpc('check_user_duplicate', {
+      p_email: email,
+      p_username: username
+    });
+    if (dupError) {
+      hideLoading();
+      showToast('Error: ' + dupError.message, 'error');
+      return;
+    }
+    if (dupData?.email_exists) {
+      hideLoading();
+      showToast('Email already registered.', 'error');
+      return;
+    }
+    if (dupData?.username_exists) {
+      hideLoading();
+      showToast('Username already taken.', 'error');
+      return;
+    }
+
+    var { data: { session: adminSession } } = await supabase.auth.getSession();
+
+    var { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: { data: { username: username, app_role: role } }
+    });
+
+    if (signUpError) {
+      if (adminSession) {
+        await supabase.auth.setSession({
+          access_token: adminSession.access_token,
+          refresh_token: adminSession.refresh_token
+        });
+      }
+      hideLoading();
+      showToast('Error: ' + signUpError.message, 'error');
+      return;
+    }
+
+    if (adminSession) {
+      await supabase.auth.setSession({
+        access_token: adminSession.access_token,
+        refresh_token: adminSession.refresh_token
+      });
+    }
+
+    if (signUpData.user) {
+      await supabase.rpc('confirm_user_email', { target_email: email });
+    }
+
+    hideLoading();
+    showToast('Created: ' + username + ' (' + role + ') | ' + email + ' | ' + password, 'success', 10000);
+    await openManageUsers();
+  } catch (e) {
+    hideLoading();
+    showToast('Error: ' + (e.message || 'Unknown error'), 'error');
+  }
+}
+
+function closeUserModal() {
+  $('userModal').classList.add('hidden');
+  $('userModal').classList.remove('flex');
+}
+
+// ─── Manage Categories ──────────────────────────────────
+var ALL_CATEGORIES = [];
+
+async function openManageCategories() {
+  $('categoryModal').classList.remove('hidden');
+  $('categoryModal').classList.add('flex');
+  var { data, error } = await supabase.from('categories').select('*').order('name');
+  if (error) { showToast('Error loading categories: ' + error.message, 'error'); }
+  ALL_CATEGORIES = data || [];
+  renderCategories();
+}
+
+function closeCategoryModal() {
+  $('categoryModal').classList.add('hidden');
+  $('categoryModal').classList.remove('flex');
+  $('fCategoryName').value = '';
+}
+
+function renderCategories() {
+  var html = ALL_CATEGORIES.map(function(c) {
+    var bg = c.bg_color||'#f3e8ff', tx = c.text_color||'#5b21b6';
+    var activeIcon = c.is_active
+      ? '<i class="fas fa-toggle-on text-green-500 text-lg"></i>'
+      : '<i class="fas fa-toggle-off text-gray-400 text-lg"></i>';
+    return '<tr class="border-b border-gray-100">' +
+      '<td class="px-3 py-2 text-sm font-medium">'+escHtml(c.name)+'</td>' +
+      '<td class="px-3 py-2"><span class="category-badge" style="background:'+bg+';color:'+tx+'">'+escHtml(c.name)+'</span></td>' +
+      '<td class="px-3 py-2 text-center whitespace-nowrap">' +
+        '<button onclick="toggleCategoryActive('+c.id+')" class="text-sm mx-1" title="Toggle active">'+activeIcon+'</button>' +
+        '<button onclick="deleteCategory('+c.id+')" class="text-xs text-red-600 hover:text-red-800 mx-1"><i class="fas fa-trash"></i></button>' +
+      '</td></tr>';
+  }).join('');
+  $('categoryTableBody').innerHTML = html || '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm">No categories.</td></tr>';
+}
+
+async function toggleCategoryActive(id) {
+  var cat = ALL_CATEGORIES.find(function(c){ return c.id === id; });
+  if (!cat) return;
+  var newVal = !cat.is_active;
+  var { error } = await supabase.from('categories').update({ is_active: newVal }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  cat.is_active = newVal;
+  renderCategories();
+  // reload active categories for dashboard
+  await loadCategories();
+  render();
+  showToast('Category ' + (newVal ? 'activated' : 'deactivated') + '.', 'success');
+}
+
+async function addCategory() {
+  var name = $('fCategoryName').value.trim();
+  if (!name) { showToast('Please enter a category name.', 'error'); return; }
+  if (ALL_CATEGORIES.some(function(c){ return c.name.toLowerCase()===name.toLowerCase(); })) {
+    showToast('Category already exists.', 'error'); return;
+  }
+  var p = CATEGORY_PALETTE[paletteIdx % CATEGORY_PALETTE.length];
+  paletteIdx++;
+  showLoading();
+  var { data, error } = await supabase
+    .from('categories')
+    .insert({ name: name, bg_color: p.bg, text_color: p.text, is_active: true })
+    .select()
+    .single();
+  hideLoading();
+  if (error) { showToast('Error adding category: ' + error.message, 'error'); return; }
+  ALL_CATEGORIES.push(data);
+  // reload active categories for dashboard
+  await loadCategories();
+  populateCategoryFilter();
+  render();
+  renderCategories();
+  $('fCategoryName').value = '';
+  showToast('Category added.', 'success');
+}
+
+async function deleteCategory(id) {
+  var cat = ALL_CATEGORIES.find(function(c){ return c.id === id; });
+  if (!cat) return;
+  showLoading();
+  var { error } = await supabase.from('categories').delete().eq('id', id);
+  hideLoading();
+  if (error) { showToast('Error deleting category: ' + error.message, 'error'); return; }
+  ALL_CATEGORIES = ALL_CATEGORIES.filter(function(c){ return c.id !== id; });
+  renderCategories();
+  // reload active categories for dashboard
+  await loadCategories();
+  populateCategoryFilter();
+  render();
+  showToast('Category deleted.', 'success');
+}
+
+// ─── Realtime Subscriptions ─────────────────────────────
+var _realtimeChannel = null;
+
+function setupRealtime() {
+  // Batalkan channel sebelumnya jika ada
+  if (_realtimeChannel) {
+    supabase.removeChannel(_realtimeChannel);
+  }
+
+  _realtimeChannel = supabase
+    .channel('db-changes')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'suppliers' },
+      function(payload) {
+        var existing = suppliers.find(function(s){ return s.id === payload.new.id; });
+        if (!existing) {
+          suppliers.push(fromSupabase(payload.new));
+          render();
+          showToast('New supplier added by another user.', 'warning');
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'suppliers' },
+      function(payload) {
+        var idx = suppliers.findIndex(function(s){ return s.id === payload.new.id; });
+        if (idx !== -1) {
+          suppliers[idx] = fromSupabase(payload.new);
+          render();
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'suppliers' },
+      function(payload) {
+        var prev = suppliers.length;
+        suppliers = suppliers.filter(function(s){ return s.id !== payload.old.id; });
+        if (suppliers.length !== prev) {
+          render();
+          showToast('A supplier was deleted by another user.', 'warning');
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'categories' },
+      async function() {
+        // Reload categories ketika ada perubahan
+        await loadCategories();
+        render();
+      }
+    )
+    .subscribe();
+}
+
+function teardownRealtime() {
+  if (_realtimeChannel) {
+    supabase.removeChannel(_realtimeChannel);
+    _realtimeChannel = null;
+  }
+}
+
+// ─── Init ───────────────────────────────────────────────
+async function init() {
+  hideLoading();
+  await initSupabase();
+  if (!supabase) return;
+  try {
+    var isLoggedIn = await checkSession();
+    if (!isLoggedIn) hideLoading();
+  } catch (e) {
+    hideLoading();
+    $('loginPage').classList.remove('hidden');
+    $('loginPage').classList.add('active');
+    $('loginError').textContent = 'Initialization error: ' + e.message;
+    $('loginError').classList.remove('hidden');
+  }
+}
+
+// Tambahkan realtime setup setelah onLoginSuccess
+var _origOnLoginSuccess = onLoginSuccess;
+onLoginSuccess = async function() {
+  await _origOnLoginSuccess();
+  setupRealtime();
+};
+
+// Teardown realtime saat logout
+var _origHandleLogout = handleLogout;
+handleLogout = async function() {
+  teardownRealtime();
+  await _origHandleLogout();
+};
+
+init();
