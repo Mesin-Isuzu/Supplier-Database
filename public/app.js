@@ -1215,6 +1215,169 @@ function teardownRealtime() {
   }
 }
 
+// ─── Summary Charts ────────────────────────────────────
+var _summaryCharts = {};
+
+function openSummaryModal() {
+  $('summaryModal').classList.remove('hidden');
+  $('summaryModal').classList.add('flex');
+  renderSummaryCharts();
+}
+
+function closeSummaryModal() {
+  $('summaryModal').classList.add('hidden');
+  $('summaryModal').classList.remove('flex');
+  Object.values(_summaryCharts).forEach(function(c) { c.destroy(); });
+  _summaryCharts = {};
+}
+
+function parseCity(address) {
+  if (!address) return 'Unknown';
+  var parts = address.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+  // Cari bagian yang bukan awalan jalan (Jl., Jalan, dsb)
+  var streetPrefixes = ['jl.', 'jl ', 'jalan ', 'jln.', 'jln ', 'no.', 'no ', 'blok ', 'blk.', 'rt ', 'rw '];
+  for (var i = parts.length - 1; i >= 0; i--) {
+    var p = parts[i].toLowerCase();
+    var isStreet = false;
+    for (var j = 0; j < streetPrefixes.length; j++) {
+      if (p.indexOf(streetPrefixes[j]) === 0) { isStreet = true; break; }
+    }
+    if (!isStreet && p.length > 2 && !/^\d/.test(p)) return parts[i];
+  }
+  return parts[parts.length - 1] || 'Unknown';
+}
+
+function renderSummaryCharts() {
+  // Destroy existing charts
+  Object.values(_summaryCharts).forEach(function(c) { c.destroy(); });
+  _summaryCharts = {};
+
+  var palette = [
+    '#4f46e5','#0891b2','#059669','#d97706','#dc2626','#7c3aed','#db2777','#2563eb',
+    '#65a30d','#ea580c','#9333ea','#0284c7','#16a34a','#ca8a04','#e11d48'
+  ];
+
+  // ── 1. Chart by Category ──
+  var catCount = {};
+  suppliers.forEach(function(s) {
+    (s.categories || []).forEach(function(c) {
+      catCount[c] = (catCount[c] || 0) + 1;
+    });
+  });
+  var catEntries = Object.entries(catCount).sort(function(a, b) { return b[1] - a[1]; });
+  var catLabels = catEntries.map(function(e) { return e[0]; });
+  var catData   = catEntries.map(function(e) { return e[1]; });
+  var catColors = catEntries.map(function(_, i) { return palette[i % palette.length]; });
+
+  _summaryCharts.category = new Chart($('chartCategory'), {
+    type: 'doughnut',
+    data: {
+      labels: catLabels,
+      datasets: [{ data: catData, backgroundColor: catColors, borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: { size: 11 }, color: '#4b5563' } }
+      }
+    }
+  });
+
+  // ── 2. Chart by Status ──
+  var activeCount   = suppliers.filter(function(s) { return s.status === 'Active'; }).length;
+  var inactiveCount = suppliers.filter(function(s) { return s.status === 'Inactive'; }).length;
+
+  _summaryCharts.status = new Chart($('chartStatus'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Active', 'Inactive'],
+      datasets: [{
+        data: [activeCount, inactiveCount],
+        backgroundColor: ['#10b981', '#d1d5db'],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 12 }, color: '#4b5563' } }
+      }
+    }
+  });
+
+  // ── 3. Chart by Location (Top 10 cities) ──
+  var locCount = {};
+  suppliers.forEach(function(s) {
+    if (!s.address) return;
+    var city = parseCity(s.address);
+    locCount[city] = (locCount[city] || 0) + 1;
+  });
+  var locEntries = Object.entries(locCount).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 10);
+  var locLabels  = locEntries.map(function(e) { return e[0]; });
+  var locData    = locEntries.map(function(e) { return e[1]; });
+
+  _summaryCharts.location = new Chart($('chartLocation'), {
+    type: 'bar',
+    data: {
+      labels: locLabels,
+      datasets: [{
+        data: locData,
+        backgroundColor: locEntries.map(function(_, i) { return palette[i % palette.length]; }),
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: { ticks: { stepSize: 1, font: { size: 10 }, color: '#6b7280' }, grid: { color: '#f3f4f6' } },
+        y: { ticks: { font: { size: 11 }, color: '#4b5563' }, grid: { display: false } }
+      }
+    }
+  });
+
+  // ── 4. Chart by Products (Top 10) ──
+  var prodCount = {};
+  suppliers.forEach(function(s) {
+    (s.products || []).forEach(function(p) {
+      var name = typeof p === 'string' ? p : p.name;
+      if (name) prodCount[name] = (prodCount[name] || 0) + 1;
+    });
+  });
+  var prodEntries = Object.entries(prodCount).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 10);
+  var prodLabels  = prodEntries.map(function(e) { return e[0]; });
+  var prodData    = prodEntries.map(function(e) { return e[1]; });
+
+  _summaryCharts.products = new Chart($('chartProducts'), {
+    type: 'bar',
+    data: {
+      labels: prodLabels,
+      datasets: [{
+        data: prodData,
+        backgroundColor: prodEntries.map(function(_, i) { return palette[i % palette.length]; }),
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: { ticks: { stepSize: 1, font: { size: 10 }, color: '#6b7280' }, grid: { color: '#f3f4f6' } },
+        y: { ticks: { font: { size: 11 }, color: '#4b5563' }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 // ─── Init ───────────────────────────────────────────────
 async function init() {
   hideLoading();
