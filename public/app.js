@@ -1231,6 +1231,63 @@ function closeSummaryModal() {
   _summaryCharts = {};
 }
 
+function parseCityFromMaps(location) {
+  if (!location) return null;
+  var url = location;
+
+  // 1. Cari parameter q=... (Google Maps search query)
+  var qMatch = url.match(/[?&]q=([^&]+)/i);
+  if (qMatch) {
+    var q = decodeURIComponent(qMatch[1].replace(/\+/g, ' '));
+    var city = parseCity(q);
+    if (city && city !== 'Lainnya') return city;
+  }
+
+  // 2. Cari path /place/... (Google Maps place URL)
+  var placeMatch = url.match(/\/place\/([^/@?]+)/i);
+  if (placeMatch) {
+    var place = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+    // Place path biasanya format: "Nama Tempat, Kecamatan, Kota, Provinsi"
+    var parts = place.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+
+    // Cari "Kota X" / "Kabupaten X" dalam path
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var pl = p.toLowerCase();
+      var mKota = pl.match(/^(kota)\s+(.+)/i);
+      if (mKota) return 'Kota ' + toTitleCase(mKota[2]);
+      var mKab  = pl.match(/^(kabupaten|kab\.?)\s+(.+)/i);
+      if (mKab)  return 'Kab. ' + toTitleCase(mKab[2]);
+    }
+
+    // Ambil bagian terakhir yang bukan numerik/kode pos
+    for (var j = parts.length - 1; j >= 0; j--) {
+      var pj = parts[j];
+      if (pj.length > 2 && !/^\d/.test(pj) && !/^\d{5}$/.test(pj)) {
+        // Cek apakah bagian ini terlihat seperti nama provinsi (umumnya 1 kata pendek untuk provinsi besar)
+        var commonProvinces = ['jawa barat', 'jawa timur', 'jawa tengah', 'dki jakarta', 'banten',
+                               'sumatera utara', 'sumatera barat', 'sumatera selatan', 'riau',
+                               'kalimantan timur', 'kalimantan barat', 'kalimantan selatan',
+                               'sulawesi selatan', 'sulawesi utara', 'bali', 'papua', 'yogyakarta',
+                               'aceh', 'lampung', 'bengkulu', 'jambi', 'maluku', 'ntb', 'ntt',
+                               'gorontalo', 'maluku utara', 'kepulauan riau', 'bangka belitung',
+                               'sulawesi tengah', 'sulawesi tenggara', 'sulawesi barat',
+                               'kalimantan utara', 'kalimantan tengah', 'papua barat',
+                               'di yogyakarta', 'daerah istimewa', 'daerah khusus'];
+        var isProv = false;
+        for (var k = 0; k < commonProvinces.length; k++) {
+          if (pj.toLowerCase().indexOf(commonProvinces[k]) !== -1) { isProv = true; break; }
+        }
+        if (!isProv) return toTitleCase(pj);
+      }
+    }
+
+    return toTitleCase(parts[0]);
+  }
+
+  return null;
+}
+
 function parseCity(address) {
   if (!address) return 'Lainnya';
 
@@ -1359,8 +1416,8 @@ function renderSummaryCharts() {
   // ── 3. Chart by Location (Top 10 cities) ──
   var locCount = {};
   suppliers.forEach(function(s) {
-    if (!s.address) return;
-    var city = parseCity(s.address);
+    var city = parseCityFromMaps(s.location) || parseCity(s.address);
+    if (!city) return;
     locCount[city] = (locCount[city] || 0) + 1;
   });
   var locEntries = Object.entries(locCount).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 10);
