@@ -123,5 +123,4 @@ WHERE pu.role IN ('Editor', 'Viewer');
 --    Jalankan setelah lihat hasil diagnostic di atas
 -- ============================================================
 UPDATE auth.users
-SET instance_id = (SELECT id FROM auth.instances LIMIT 1)
-WHERE instance_id = '00000000-0000-0000-0000-000000000000';
+SET instance_id = '00000000-0000-0000-0000-000000000000';
