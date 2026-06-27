@@ -191,3 +191,13 @@ DELETE FROM auth.users WHERE email IN ('editor@gmail.com', 'viewer@gmail.com');
 SELECT proname FROM pg_proc
 JOIN pg_namespace n ON pronamespace = n.oid
 WHERE n.nspname = 'public' AND proname = 'handle_new_user';
+
+
+-- ============================================================
+-- 11. SET ROLE: Setelah buat user dari Dashboard, set role-nya
+--    Ganti email kalau berbeda
+-- ============================================================
+INSERT INTO public.users (id, username, role)
+SELECT id, 'editor3', 'Editor'
+FROM auth.users WHERE email = 'editor3@gmail.com'
+ON CONFLICT (id) DO UPDATE SET role = 'Editor', username = 'editor3';
