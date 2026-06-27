@@ -39,7 +39,85 @@
     .empty-state i { font-size: 3rem; margin-bottom: 12px; }
     .thumb-hover-wrap { position: relative; display: inline-block; }
     .map-embed iframe { width: 100%; height: 200px; border: 0; border-radius: 8px; }
-    @media (max-width: 768px) { .table-wrap { overflow-x: auto; } }
+    .map-container { padding-bottom: 28%; }
+    @media (max-width: 768px) { .map-container { padding-bottom: 50%; } }
+    /* ── Mobile: Table → Cards ── */
+    @media (max-width: 768px) {
+      #mainTable thead { display: none; }
+      #mainTable tbody tr {
+        display: block;
+        margin-bottom: 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        padding: 12px;
+      }
+      #mainTable tbody td {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 6px 0;
+        border: none;
+        text-align: left !important;
+      }
+      #mainTable tbody td:not(:last-child) { border-bottom: 1px solid #f3f4f6; }
+      #mainTable tbody td::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        width: 85px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+        padding-top: 1px;
+      }
+      #mainTable tbody td[data-label="Actions"] { justify-content: flex-start; }
+      #mainTable tbody td[data-label="Actions"]::before { width: auto; }
+      .table-row-hover:hover { background: inherit; }
+      .pagination-btn { padding: 8px 10px; font-size: 0.8rem; }
+    }
+
+    /* ── Mobile: Navbar text hide ── */
+    @media (max-width: 480px) {
+      .nav-brand-text { display: none; }
+    }
+
+    /* ── Mobile: Modals full-width ── */
+    @media (max-width: 640px) {
+      #addEditModal > div,
+      #detailModal > div,
+      #userModal > div,
+      #summaryModal > div,
+      #categoryModal > div {
+        margin: 0;
+        border-radius: 16px;
+        max-height: 92vh;
+      }
+      #addEditModal > div { min-width: unset !important; }
+      #detailModal > div { min-width: unset !important; }
+      .modal-overlay { padding: 8px; }
+      /* Modal inner padding lebih compact */
+      .modal-overlay .p-6 { padding: 16px; }
+      .modal-overlay .space-y-4 > * + * { margin-top: 12px; }
+      /* Summary charts: stack vertically, shorter height */
+      #summaryModal .grid { grid-template-columns: 1fr; }
+      #summaryModal [style*="height:280px"] { height: 240px !important; }
+    }
+
+    /* ── Mobile: Toolbar improvements ── */
+    @media (max-width: 480px) {
+      #searchInput { min-width: unset !important; }
+      #filterStatus, #filterCategory { font-size: 0.75rem; padding: 8px 6px; }
+      .toast { left: 16px; right: 16px; bottom: 16px; text-align: center; justify-content: center; }
+      /* Stats 1 column on very small screens */
+      #statsGrid { grid-template-columns: 1fr; }
+      /* Map embed taller on mobile */
+      .map-embed iframe { height: 160px !important; }
+      /* Login card less padding */
+      #loginPage .max-w-md { margin: 0 12px; padding: 20px; }
+    }
     .login-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
     .app-content { display: none; }
     .app-content.active { display: block; }
@@ -93,7 +171,7 @@
         <div class="flex items-center justify-between h-16">
           <div class="flex items-center gap-3">
             <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Isuzu_logo.png" alt="Isuzu Logo" class="h-7" style="filter: invert(16%) sepia(100%) saturate(7414%) hue-rotate(355deg) brightness(94%) contrast(108%);">
-            <span class="text-lg font-bold text-gray-900" style="font-family: 'Usuzi', sans-serif; letter-spacing: 1px;">mesin isuzu indonesia</span>
+            <span class="text-lg font-bold text-gray-900 nav-brand-text" style="font-family: 'Usuzi', sans-serif; letter-spacing: 1px;">mesin isuzu indonesia</span>
           </div>
           <div id="navRight" class="flex items-center gap-3">
             <span id="navUsername" class="text-sm font-medium text-gray-700 hidden"></span>
@@ -140,17 +218,17 @@
           </div>
           <div class="flex items-center gap-1 flex-wrap">
             <input type="file" id="importFile" accept=".csv,.xls,.xlsx" style="display:none" onchange="handleImport(this)">
-            <div class="flex items-center gap-1 px-1 border-r border-gray-200">
-              <button onclick="document.getElementById('importFile').click()" id="importBtn" class="hidden text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2.5 py-2 rounded-lg text-sm transition" title="Import"><i class="fas fa-file-import"></i></button>
-              <button onclick="downloadTemplate()" id="templateBtn" class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2.5 py-2 rounded-lg text-sm transition" title="Download Template"><i class="fas fa-download"></i></button>
-              <button onclick="exportCSV()" class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2.5 py-2 rounded-lg text-sm transition" title="Export CSV"><i class="fas fa-file-csv"></i></button>
+            <div class="flex items-center gap-0.5 sm:gap-1 px-1 border-r border-gray-200">
+              <button onclick="document.getElementById('importFile').click()" id="importBtn" class="hidden text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2 sm:px-2.5 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm transition" title="Import"><i class="fas fa-file-import"></i><span class="hidden sm:inline ml-1">Import</span></button>
+              <button onclick="downloadTemplate()" id="templateBtn" class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2 sm:px-2.5 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm transition" title="Download Template"><i class="fas fa-download"></i><span class="hidden sm:inline ml-1">Template</span></button>
+              <button onclick="exportCSV()" class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 px-2 sm:px-2.5 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm transition" title="Export CSV"><i class="fas fa-file-csv"></i><span class="hidden sm:inline ml-1">Export</span></button>
             </div>
-            <div class="flex items-center gap-1 px-1 border-r border-gray-200">
-              <button onclick="openManageUsers()" id="manageUsersBtn" class="hidden text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 px-2.5 py-2 rounded-lg text-sm transition" title="Manage Users"><i class="fas fa-users-cog"></i></button>
-              <button onclick="openSummaryModal()" class="text-gray-500 hover:text-teal-600 hover:bg-teal-50 px-2.5 py-2 rounded-lg text-sm transition" title="Summary"><i class="fas fa-chart-pie"></i></button>
-              <button onclick="openManageCategories()" id="manageCategoriesBtn" class="hidden text-gray-500 hover:text-orange-600 hover:bg-orange-50 px-2.5 py-2 rounded-lg text-sm transition" title="Manage Categories"><i class="fas fa-tags"></i></button>
+            <div class="flex items-center gap-0.5 sm:gap-1 px-1 border-r border-gray-200">
+              <button onclick="openManageUsers()" id="manageUsersBtn" class="hidden text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 px-2 sm:px-2.5 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm transition" title="Manage Users"><i class="fas fa-users-cog"></i><span class="hidden sm:inline ml-1">Users</span></button>
+              <button onclick="openSummaryModal()" class="text-gray-500 hover:text-teal-600 hover:bg-teal-50 px-2 sm:px-2.5 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm transition" title="Summary"><i class="fas fa-chart-pie"></i><span class="hidden sm:inline ml-1">Summary</span></button>
+              <button onclick="openManageCategories()" id="manageCategoriesBtn" class="hidden text-gray-500 hover:text-orange-600 hover:bg-orange-50 px-2 sm:px-2.5 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm transition" title="Manage Categories"><i class="fas fa-tags"></i><span class="hidden sm:inline ml-1">Categories</span></button>
             </div>
-            <button onclick="openAddModal()" id="addSupplierBtn" class="hidden bg-[#DA251C] hover:bg-[#B71C1C] text-white px-3.5 py-2 rounded-lg text-sm font-medium transition shadow-sm"><i class="fas fa-plus mr-1.5"></i>Add Supplier</button>
+            <button onclick="openAddModal()" id="addSupplierBtn" class="hidden bg-[#DA251C] hover:bg-[#B71C1C] text-white px-3 sm:px-3.5 py-2.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition shadow-sm"><i class="fas fa-plus mr-1 sm:mr-1.5"></i>Add Supplier</button>
           </div>
         </div>
       </div>
@@ -158,7 +236,7 @@
       <!-- Table -->
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="table-wrap">
-          <table class="w-full text-sm">
+          <table class="w-full text-sm" id="mainTable">
             <thead>
               <tr class="bg-gray-50 border-b border-gray-200">
                 <th class="text-left px-4 py-3 font-semibold text-gray-600 cursor-pointer select-none" onclick="sortBy('company_name')">Company <i class="fas fa-sort sort-icon" id="sort-company_name"></i></th>

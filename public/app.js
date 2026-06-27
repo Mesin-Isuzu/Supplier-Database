@@ -387,13 +387,13 @@ function render() {
     if (window.__canDelete) actions += '<button onclick="openDeleteModal('+s.id+')" title="Delete" class="text-red-500 hover:text-red-700 mx-1"><i class="fas fa-trash"></i></button>';
 
     return '<tr class="table-row-hover border-b border-gray-100">' +
-      '<td class="px-4 py-3 font-medium">'+escHtml(s.companyName)+'</td>' +
-      '<td class="px-4 py-3 text-gray-600">'+escHtml(s.contactPerson)+'<br><span class="text-xs text-gray-400">'+escHtml(s.phone)+'</span></td>' +
-      '<td class="px-4 py-3 text-gray-600">'+escHtml(s.phone)+'</td>' +
-      '<td class="px-4 py-3">'+cats+'</td>' +
-      '<td class="px-4 py-3">'+prods+'</td>' +
-      '<td class="px-4 py-3 text-center"><span class="text-xs font-medium px-2 py-1 rounded-full '+statusCls+'">'+s.status+'</span></td>' +
-      '<td class="px-4 py-3 text-center">'+actions+'</td>' +
+      '<td class="px-4 py-3 font-medium" data-label="Company">'+escHtml(s.companyName)+'</td>' +
+      '<td class="px-4 py-3 text-gray-600" data-label="Contact">'+escHtml(s.contactPerson)+'<br><span class="text-xs text-gray-400">'+escHtml(s.phone)+'</span></td>' +
+      '<td class="px-4 py-3 text-gray-600 hidden md:table-cell" data-label="Phone">'+escHtml(s.phone)+'</td>' +
+      '<td class="px-4 py-3" data-label="Categories">'+cats+'</td>' +
+      '<td class="px-4 py-3" data-label="Products">'+prods+'</td>' +
+      '<td class="px-4 py-3 text-center md:text-center" data-label="Status"><span class="text-xs font-medium px-2 py-1 rounded-full '+statusCls+'">'+s.status+'</span></td>' +
+      '<td class="px-4 py-3 text-center md:text-center" data-label="Actions">'+actions+'</td>' +
       '</tr>';
   }).join('');
 
@@ -623,7 +623,7 @@ function openDetailModal(id) {
     m = loc.match(/\/place\/([^\/@?]+)/);
     if (m) q = decodeURIComponent(m[1].replace(/\+/g,' '));
     var embedSrc = 'https://maps.google.com/maps?q=' + encodeURIComponent(q) + '&output=embed&z=12';
-    mapHTML = '<div class="mt-3"><div style="position:relative;width:100%;padding-bottom:28%;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb">' +
+    mapHTML = '<div class="mt-3"><div class="map-container" style="position:relative;width:100%;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb">' +
       '<iframe src="'+escHtml(embedSrc)+'" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allowfullscreen loading="lazy"></iframe></div>' +
       '<a href="'+escHtml(loc.match(/^https?:\/\//)?loc:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q))+'" target="_blank" rel="noopener" class="text-blue-600 hover:underline text-xs mt-1 inline-block"><i class="fas fa-external-link-alt mr-1"></i>Open in Google Maps</a></div>';
   }
