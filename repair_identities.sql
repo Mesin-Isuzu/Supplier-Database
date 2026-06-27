@@ -140,3 +140,16 @@ SELECT email, instance_id, email_confirmed_at FROM auth.users WHERE email LIKE '
 
 -- Query D: viewer user
 SELECT email, instance_id, email_confirmed_at FROM auth.users WHERE email LIKE '%viewer%' LIMIT 1;
+
+
+-- ============================================================
+-- 6. COMPARE: Bandingkan auth.users admin vs editor
+--    Jalankan dua query ini satu per satu
+-- ============================================================
+SELECT email, confirmation_sent_at, email_change_confirm_status,
+  raw_app_meta_data, raw_user_meta_data, aud, role, is_sso_user, is_anonymous
+FROM auth.users WHERE email LIKE '%admin%' LIMIT 1;
+
+SELECT email, confirmation_sent_at, email_change_confirm_status,
+  raw_app_meta_data, raw_user_meta_data, aud, role, is_sso_user, is_anonymous
+FROM auth.users WHERE email LIKE '%editor%' LIMIT 1;
