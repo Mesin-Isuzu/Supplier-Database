@@ -1060,20 +1060,38 @@ async function addUser() {
       return;
     }
 
-    var { data: result, error: createError } = await supabase.rpc('admin_create_user', {
-      user_email: email,
-      user_password: password,
-      user_username: username,
-      user_role: role
+    var { data: { session: adminSession } } = await supabase.auth.getSession();
+
+    var { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: { data: { username: username, app_role: role } }
     });
 
-    hideLoading();
-
-    if (createError) {
-      showToast('Error: ' + createError.message, 'error');
+    if (signUpError) {
+      if (adminSession) {
+        await supabase.auth.setSession({
+          access_token: adminSession.access_token,
+          refresh_token: adminSession.refresh_token
+        });
+      }
+      hideLoading();
+      showToast('Error: ' + signUpError.message, 'error');
       return;
     }
 
+    if (adminSession) {
+      await supabase.auth.setSession({
+        access_token: adminSession.access_token,
+        refresh_token: adminSession.refresh_token
+      });
+    }
+
+    if (signUpData.user) {
+      await supabase.rpc('confirm_user_email', { target_email: email });
+    }
+
+    hideLoading();
     showToast('Created: ' + username + ' (' + role + ') | ' + email + ' | ' + password, 'success', 10000);
     await openManageUsers();
   } catch (e) {
