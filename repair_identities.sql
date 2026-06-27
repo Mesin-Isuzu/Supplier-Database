@@ -235,12 +235,6 @@ ORDER BY n.nspname, p.proname;
 
 
 -- ============================================================
--- 14. TEST: Jalankan admin_create_user_v2 langsung dari SQL
---    (tidak kena rate limit app, lewati pg_net)
+-- 14. CHECK: Apakah pg_net extension ada?
 -- ============================================================
-SELECT public.admin_create_user_v2(
-  'testeditor@gmail.com',
-  '123456',
-  'testeditor',
-  'Editor'
-);
+SELECT extname, extversion FROM pg_extension WHERE extname = 'pg_net' OR extname = 'pgsql_http';
