@@ -1232,19 +1232,69 @@ function closeSummaryModal() {
 }
 
 function parseCity(address) {
-  if (!address) return 'Unknown';
-  var parts = address.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-  // Cari bagian yang bukan awalan jalan (Jl., Jalan, dsb)
-  var streetPrefixes = ['jl.', 'jl ', 'jalan ', 'jln.', 'jln ', 'no.', 'no ', 'blok ', 'blk.', 'rt ', 'rw '];
-  for (var i = parts.length - 1; i >= 0; i--) {
-    var p = parts[i].toLowerCase();
-    var isStreet = false;
-    for (var j = 0; j < streetPrefixes.length; j++) {
-      if (p.indexOf(streetPrefixes[j]) === 0) { isStreet = true; break; }
-    }
-    if (!isStreet && p.length > 2 && !/^\d/.test(p)) return parts[i];
+  if (!address) return 'Lainnya';
+
+  // Normalisasi: hapus kode pos (5 digit angka di akhir)
+  var cleaned = address.replace(/\b\d{5}\b/g, '').trim();
+
+  var parts = cleaned.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+
+  var skipPrefixes = ['jl.', 'jl ', 'jalan ', 'jln.', 'jln ', 'no.', 'no ', 'blok ', 'blk.', 'rt ', 'rw ',
+                      'ds.', 'ds ', 'dusun ', 'kp.', 'kp ', 'kampung ', 'gg.', 'gg ', 'gang '];
+
+  // 1. Cari "Kota ..." / "Kabupaten ..." / "Kab. ..." eksplisit
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i];
+    var pl = p.toLowerCase();
+    var mKota = pl.match(/^(kota)\s+(.+)/i);
+    if (mKota) return 'Kota ' + toTitleCase(mKota[2]);
+    var mKab  = pl.match(/^(kabupaten|kab\.?)\s+(.+)/i);
+    if (mKab)  return 'Kab. ' + toTitleCase(mKab[2]);
   }
-  return parts[parts.length - 1] || 'Unknown';
+
+  // 2. Cari bagian yg mengandung kata "Kecamatan" — ambil nama kecamatannya sebagai fallback
+  var kecName = null;
+  for (var j = 0; j < parts.length; j++) {
+    var pl2 = parts[j].toLowerCase();
+    var mKec = pl2.match(/^kec(?:amatan)?[.\s]+(.+)/i);
+    if (mKec) { kecName = toTitleCase(mKec[1]); continue; }
+    if (pl2.indexOf('kecamatan') === 0 || pl2.indexOf('kec.') === 0) continue;
+  }
+
+  // 3. Ambil bagian terakhir yang bukan awalan jalan / terlalu pendek / numerik / administratif
+  var adminWords = ['kecamatan', 'kec.', 'kec ', 'kelurahan', 'kel.', 'kel ', 'desa', 'provinsi',
+                    'prov.', 'prov ', 'indonesia', 'rt ', 'rw ', 'kodepos', 'kode pos'];
+  for (var k = parts.length - 1; k >= 0; k--) {
+    var pk = parts[k];
+    var pkl = pk.toLowerCase();
+
+    // Skip jika diawali prefix jalan
+    var pref = false;
+    for (var x = 0; x < skipPrefixes.length; x++) {
+      if (pkl.indexOf(skipPrefixes[x]) === 0) { pref = true; break; }
+    }
+    if (pref) continue;
+
+    // Skip jika bagian administratif
+    var adm = false;
+    for (var y = 0; y < adminWords.length; y++) {
+      if (pkl.indexOf(adminWords[y]) === 0) { adm = true; break; }
+    }
+    if (adm) continue;
+
+    // Skip jika pendek banget atau dimulai angka (biasanya nomor rumah/RT/RW)
+    if (pk.length <= 2 || /^\d/.test(pk)) continue;
+
+    return toTitleCase(pk);
+  }
+
+  return kecName || 'Lainnya';
+}
+
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, function(txt) {
+    return txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase();
+  });
 }
 
 function renderSummaryCharts() {
