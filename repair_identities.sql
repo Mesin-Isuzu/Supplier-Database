@@ -276,7 +276,8 @@ BEGIN
     url := api_url,
     headers := jsonb_build_object(
       'Authorization', 'Bearer ' || service_role_key,
-      'Content-Type', 'application/json'
+      'Content-Type', 'application/json',
+      'apikey', service_role_key
     ),
     body := jsonb_build_object(
       'email', LOWER(user_email),
@@ -288,11 +289,13 @@ BEGIN
     timeout_milliseconds := 15000
   );
 
-  PERFORM net._http_collect_response(req_id, true);
-  
-  SELECT status_code, content INTO resp_status, resp_body
-  FROM net._http_response
-  WHERE id = req_id;
+  -- Poll net._http_response sampai response tersedia (max 10 detik)
+  FOR i IN 1..20 LOOP
+    SELECT status_code, content INTO resp_status, resp_body
+    FROM net._http_response WHERE id = req_id;
+    EXIT WHEN resp_status IS NOT NULL;
+    PERFORM pg_sleep(0.5);
+  END LOOP;
 
   IF resp_status IS NULL THEN
     RAISE EXCEPTION 'No response from GoTrue API';
