@@ -320,3 +320,10 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.admin_create_user_v2(TEXT, TEXT, TEXT, TEXT) TO authenticated;
+
+
+-- ============================================================
+-- 16. CHECK: Lihat struktur net._http_response
+-- ============================================================
+SELECT column_name, data_type FROM information_schema.columns
+WHERE table_schema = 'net' AND table_name = '_http_response';
