@@ -153,3 +153,11 @@ FROM auth.users WHERE email LIKE '%admin%' LIMIT 1;
 SELECT email, confirmation_sent_at, email_change_confirm_status,
   raw_app_meta_data, raw_user_meta_data, aud, role, is_sso_user, is_anonymous
 FROM auth.users WHERE email LIKE '%editor%' LIMIT 1;
+
+
+-- ============================================================
+-- 7. CHECK PASSWORD: Bandingkan panjang hash admin vs editor
+-- ============================================================
+SELECT email, length(encrypted_password) as pw_len
+FROM auth.users
+WHERE email LIKE '%admin%' OR email LIKE '%editor%';
