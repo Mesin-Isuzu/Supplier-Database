@@ -124,3 +124,15 @@ WHERE pu.role IN ('Editor', 'Viewer');
 -- ============================================================
 UPDATE auth.users
 SET instance_id = '00000000-0000-0000-0000-000000000000';
+
+
+-- ============================================================
+-- 5. CHECK: Lihat instance_id project & semua user
+-- ============================================================
+SELECT 'auth.instances' as source, id::text FROM auth.instances LIMIT 1
+UNION ALL
+SELECT 'admin', instance_id::text FROM auth.users WHERE email LIKE '%admin%' LIMIT 1
+UNION ALL
+SELECT 'editor', instance_id::text FROM auth.users WHERE email LIKE '%editor%' LIMIT 1
+UNION ALL
+SELECT 'viewer', instance_id::text FROM auth.users WHERE email LIKE '%viewer%' LIMIT 1;
