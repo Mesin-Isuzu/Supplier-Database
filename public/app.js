@@ -441,8 +441,8 @@ function render() {
 
     return '<tr class="table-row-hover border-b border-gray-100">' +
       '<td class="px-4 py-3 font-medium" data-label="Company">'+escHtml(s.companyName)+'</td>' +
-      '<td class="px-4 py-3 text-gray-600" data-label="Contact">'+escHtml(s.contactPerson)+(s.contactPerson2?'<br><span class="text-xs text-gray-400">'+escHtml(s.contactPerson2)+'</span>':'')+'</td>' +
-      '<td class="px-4 py-3 text-gray-600 hidden md:table-cell" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br><span class="text-xs text-gray-400">'+escHtml(s.phone2)+'</span>':'')+'</td>' +
+      '<td class="px-4 py-3 text-gray-600" data-label="Contact">'+escHtml(s.contactPerson)+(s.contactPerson2?'<br>'+escHtml(s.contactPerson2):'')+'</td>' +
+      '<td class="px-4 py-3 text-gray-600 hidden md:table-cell" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br>'+escHtml(s.phone2):'')+'</td>' +
       '<td class="px-4 py-3" data-label="Categories">'+cats+'</td>' +
       '<td class="px-4 py-3" data-label="Products">'+prods+'</td>' +
       '<td class="px-4 py-3 text-center md:text-center" data-label="Status"><span class="text-xs font-medium px-2 py-1 rounded-full '+txnCls+'">'+txnDate+'</span></td>' +
