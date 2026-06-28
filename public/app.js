@@ -1165,6 +1165,7 @@ async function addUser() {
   var password = $('fNewUserPassword').value.trim();
   var role     = $('fNewUserRole').value;
   if (!username || !email || !password) { showToast('Please fill all fields.', 'error'); return; }
+  if (password.length < 6) { showToast('Password must be at least 6 characters.', 'error'); return; }
   $('fNewUserUsername').value = ''; $('fNewUserEmail').value = ''; $('fNewUserPassword').value = '';
   showLoading();
 
@@ -1186,19 +1187,29 @@ async function addUser() {
       return;
     }
 
-    var { data: rpcData, error: rpcError } = await supabase.rpc('admin_create_user', {
+    var rpcParams = {
       user_email: email,
       user_password: password,
       user_username: username,
       user_role: role
-    });
+    };
 
-    if (rpcError) {
+    var { data: rpcData, error: rpcError } = await supabase.rpc('admin_create_user', rpcParams);
+
+    if (rpcError && rpcError.message.indexOf('Could not find') !== -1) {
+      var { data: fbData, error: fbError } = await supabase.rpc('admin_create_user_fallback', rpcParams);
+      if (fbError) {
+        showToast('Error creating user: ' + fbError.message, 'error');
+        return;
+      }
+      showToast('User ' + username + ' (' + role + ') created successfully.', 'success');
+    } else if (rpcError) {
       showToast('Error creating user: ' + rpcError.message, 'error');
       return;
+    } else {
+      showToast('User ' + username + ' (' + role + ') created successfully.', 'success');
     }
 
-    showToast('User ' + username + ' (' + role + ') created successfully.', 'success');
     await openManageUsers();
   } catch (e) {
     showToast('Error: ' + (e.message || 'Unknown error'), 'error');
