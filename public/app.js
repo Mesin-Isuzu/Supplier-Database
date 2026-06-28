@@ -1195,25 +1195,47 @@ async function addUser() {
       return;
     }
 
-    // Panggil RPC admin_create_user — GoTrue Admin API via pg_net (no rate limit)
-    var { data: rpcData, error: rpcError } = await supabase.rpc('admin_create_user', {
-      user_email: email,
-      user_password: password,
-      user_username: username,
-      user_role: role
+    // Gunakan signUp — GoTrue hash password sendiri (100% kompatibel)
+    // Simpan session admin dulu (signUp bisa auto-login user baru)
+    var { data: sessionData } = await supabase.auth.getSession();
+    var adminSession = sessionData?.session;
+
+    var { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: { data: { username: username, app_role: role } }
     });
 
-    if (rpcError) {
-      showToast('Error: ' + rpcError.message, 'error');
+    if (signUpError) {
+      if (signUpError.status === 429) {
+        showToast('Rate limit — wait a moment and try again.', 'warning');
+      } else {
+        showToast('Error: ' + (signUpError.message || JSON.stringify(signUpError)), 'error');
+      }
       return;
     }
 
-    if (!rpcData || rpcData.success === false) {
-      showToast('Error: ' + ((rpcData && rpcData.error) || 'Unknown error'), 'error');
+    if (!signUpData?.user) {
+      showToast('Error: User not created.', 'error');
       return;
     }
 
-    showToast('User ' + rpcData.username + ' (' + rpcData.role + ') created successfully.', 'success');
+    // Restore session admin
+    if (adminSession) {
+      await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+    }
+
+    // Auto-confirm email
+    await supabase.rpc('confirm_user_email', { target_email: email });
+
+    // Pastikan role benar di public.users
+    await supabase.rpc('ensure_user_profile', {
+      p_user_id: signUpData.user.id,
+      p_username: username,
+      p_role: role
+    });
+
+    showToast('User ' + username + ' (' + role + ') created successfully.', 'success');
     await openManageUsers();
   } catch (e) {
     showToast('Error: ' + (e.message || 'Unknown error'), 'error');
