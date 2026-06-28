@@ -119,19 +119,17 @@
             <span class="text-gray-400 text-sm mx-1">—</span>
             <input type="date" id="filterDateTo" class="toolbar-select" onchange="onSearch()" title="To date">
           </div>
-          <div class="flex items-center gap-1 flex-wrap">
+          <div class="flex items-center gap-2 flex-wrap">
             <input type="file" id="importFile" accept=".csv,.xls,.xlsx" style="display:none" onchange="handleImport(this)">
-            <div class="flex items-center gap-0.5 sm:gap-1 toolbar-divider-wrap">
-              <button onclick="document.getElementById('importFile').click()" id="importBtn" class="toolbar-icon-btn hidden" title="Import"><i class="fas fa-file-import"></i><span class="hidden sm:inline ml-1">Import</span></button>
-              <button onclick="downloadTemplate()" id="templateBtn" class="toolbar-icon-btn" title="Download Template"><i class="fas fa-download"></i><span class="hidden sm:inline ml-1">Template</span></button>
-              <button onclick="exportCSV()" class="toolbar-icon-btn" title="Export CSV"><i class="fas fa-file-csv"></i><span class="hidden sm:inline ml-1">Export</span></button>
-            </div>
-            <div class="flex items-center gap-0.5 sm:gap-1 toolbar-divider-wrap">
-              <button onclick="openManageUsers()" id="manageUsersBtn" class="toolbar-icon-btn hidden" title="Manage Users"><i class="fas fa-users-cog"></i><span class="hidden sm:inline ml-1">Users</span></button>
-              <button onclick="openSummaryModal()" class="toolbar-icon-btn" title="Summary"><i class="fas fa-chart-pie"></i><span class="hidden sm:inline ml-1">Summary</span></button>
-              <button onclick="openManageCategories()" id="manageCategoriesBtn" class="toolbar-icon-btn hidden" title="Manage Categories"><i class="fas fa-tags"></i><span class="hidden sm:inline ml-1">Categories</span></button>
-            </div>
-            <button onclick="openAddModal()" id="addSupplierBtn" class="btn btn-primary btn-sm hidden"><i class="fas fa-plus mr-1.5"></i>Add Supplier</button>
+            <button onclick="document.getElementById('importFile').click()" id="importBtn" class="toolbar-icon-btn hidden" title="Import CSV/Excel"><i class="fas fa-file-import"></i><span class="hidden sm:inline">Import</span></button>
+            <button onclick="downloadTemplate()" id="templateBtn" class="toolbar-icon-btn" title="Download Template CSV"><i class="fas fa-download"></i><span class="hidden sm:inline">Template</span></button>
+            <button onclick="exportCSV()" class="toolbar-icon-btn" title="Export to CSV"><i class="fas fa-file-csv"></i><span class="hidden sm:inline">Export</span></button>
+            <span class="toolbar-divider"></span>
+            <button onclick="openSummaryModal()" class="toolbar-icon-btn" title="Charts &amp; Summary"><i class="fas fa-chart-pie"></i><span class="hidden sm:inline">Summary</span></button>
+            <button onclick="openManageCategories()" id="manageCategoriesBtn" class="toolbar-icon-btn hidden" title="Manage Categories"><i class="fas fa-tags"></i><span class="hidden sm:inline">Categories</span></button>
+            <button onclick="openManageUsers()" id="manageUsersBtn" class="toolbar-icon-btn hidden" title="Manage Users"><i class="fas fa-users-cog"></i><span class="hidden sm:inline">Users</span></button>
+            <span class="toolbar-divider hidden" id="addSupplierDivider"></span>
+            <button onclick="openAddModal()" id="addSupplierBtn" class="toolbar-icon-btn toolbar-icon-btn--accent hidden"><i class="fas fa-plus"></i><span class="hidden sm:inline">Add Supplier</span></button>
           </div>
         </div>
       </div>

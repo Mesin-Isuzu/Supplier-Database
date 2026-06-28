@@ -302,6 +302,7 @@ function applyPermissions() {
   show('templateBtn',    canEdit);
   show('manageUsersBtn',      isAdmin);
   show('manageCategoriesBtn', isAdmin);
+  show('addSupplierDivider',  canEdit);
 }
 
 // ─── Load Data from Supabase ────────────────────────────
