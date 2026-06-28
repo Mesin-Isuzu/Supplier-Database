@@ -441,7 +441,12 @@ function render() {
     }).join('');
     if ((s.products||[]).length > 3) prods += '<span class="product-tag">+'+(s.products.length-3)+' more</span>';
 
-    var txnDate = s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID') : '—';
+    var txnDate = s.lastTransactionDate ? (function(d){
+      var dd = String(d.getDate()).padStart(2,'0');
+      var mmm = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][d.getMonth()];
+      var yy = String(d.getFullYear()).slice(-2);
+      return dd + '/' + mmm + '/' + yy;
+    })(new Date(s.lastTransactionDate)) : '—';
     var txnCls = s.lastTransactionDate ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500';
 
     var actions = '<button onclick="openDetailModal('+s.id+')" title="View" class="text-indigo-600 hover:text-indigo-800 mx-1"><i class="fas fa-eye"></i></button>';
