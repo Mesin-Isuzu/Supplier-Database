@@ -1515,13 +1515,23 @@ function renderSummaryCharts() {
   var myLabels = myEntries.map(function(e) { return e[0]; });
   var myData   = myEntries.map(function(e) { return e[1]; });
 
+  var now = new Date();
+  var twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), 1);
+  var oneYearAgo  = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+  var myColors = myLabels.map(function(label) {
+    var d = new Date(label);
+    if (d < twoYearsAgo) return '#ef4444';      // merah: > 2 tahun
+    if (d < oneYearAgo)  return '#f59e0b';      // kuning: 1 - 2 tahun
+    return '#10b981';                           // hijau: < 1 tahun
+  });
+
   _summaryCharts.monthYear = new Chart($('chartStatus'), {
     type: 'bar',
     data: {
       labels: myLabels,
       datasets: [{
         data: myData,
-        backgroundColor: '#6366f1',
+        backgroundColor: myColors,
         borderRadius: 6,
         borderSkipped: false
       }]
