@@ -1502,24 +1502,25 @@ function renderSummaryCharts() {
 
   // ── 2. Chart by Last Transaction Month-Year ──
   var monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-  var monthYearCount = {};
+  var monthYearData = [];
   suppliers.forEach(function(s) {
     if (!s.lastTransactionDate) return;
     var d = new Date(s.lastTransactionDate);
-    var key = monthNames[d.getMonth()] + ' ' + d.getFullYear();
-    monthYearCount[key] = (monthYearCount[key] || 0) + 1;
+    var label = monthNames[d.getMonth()] + ' ' + d.getFullYear();
+    var sortKey = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    var existing = monthYearData.find(function(x) { return x.label === label; });
+    if (existing) { existing.count++; }
+    else { monthYearData.push({ label: label, sortKey: sortKey, count: 1 }); }
   });
-  var myEntries = Object.entries(monthYearCount).sort(function(a, b) {
-    return new Date(a[0]) - new Date(b[0]);
-  });
-  var myLabels = myEntries.map(function(e) { return e[0]; });
-  var myData   = myEntries.map(function(e) { return e[1]; });
+  monthYearData.sort(function(a, b) { return a.sortKey.localeCompare(b.sortKey); });
+  var myLabels = monthYearData.map(function(e) { return e.label; });
+  var myData   = monthYearData.map(function(e) { return e.count; });
 
   var now = new Date();
   var twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), 1);
   var oneYearAgo  = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-  var myColors = myLabels.map(function(label) {
-    var d = new Date(label);
+  var myColors = monthYearData.map(function(e) {
+    var d = new Date(e.sortKey);
     if (d < twoYearsAgo) return '#ef4444';      // merah: > 2 tahun
     if (d < oneYearAgo)  return '#f59e0b';      // kuning: 1 - 2 tahun
     return '#10b981';                           // hijau: < 1 tahun
