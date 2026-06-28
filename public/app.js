@@ -554,6 +554,16 @@ async function saveSupplier() {
     return;
   }
 
+  var email1 = $('fEmail').value.trim();
+  var email2 = $('fEmail2').value.trim();
+  var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (email1 && !emailRe.test(email1)) {
+    showToast('Warning: Email 1 format tidak valid', 'warning', 5000);
+  }
+  if (email2 && !emailRe.test(email2)) {
+    showToast('Warning: Email 2 format tidak valid', 'warning', 5000);
+  }
+
   var txnDate = $('fTransactionDate').value || null;
 
   // Collect products from table rows
@@ -578,8 +588,8 @@ async function saveSupplier() {
     contact_person_2: $('fContactPerson2').value.trim(),
     phone:            phone,
     phone_2:          $('fPhone2').value.trim(),
-    email:            $('fEmail').value.trim(),
-    email_2:          $('fEmail2').value.trim(),
+    email:            email1,
+    email_2:          email2,
     website:          $('fWebsite').value.trim(),
     address:          $('fAddress').value.trim(),
     location:         $('fLocation').value.trim(),
