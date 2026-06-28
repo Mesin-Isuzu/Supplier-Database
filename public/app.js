@@ -387,9 +387,11 @@ function getFilteredSorted() {
   });
 
   if (sortColumn) {
+    var fieldMap = { 'last_transaction_date': 'lastTransactionDate', 'company_name': 'companyName', 'contact_person': 'contactPerson', 'phone': 'phone' };
+    var fld = fieldMap[sortColumn] || sortColumn;
     list.sort(function(a, b) {
-      var av = (a[sortColumn]||'').toString().toLowerCase();
-      var bv = (b[sortColumn]||'').toString().toLowerCase();
+      var av = (a[fld]||'').toString().toLowerCase();
+      var bv = (b[fld]||'').toString().toLowerCase();
       if (av < bv) return sortAsc ? -1 : 1;
       if (av > bv) return sortAsc ?  1 : -1;
       return 0;
