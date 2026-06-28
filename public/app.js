@@ -1001,7 +1001,7 @@ function exportCSV() {
             csvEsc(s.website||''),csvEsc(s.address||''),csvEsc(s.location||''),
             csvEsc((s.categories||[]).join(', ')),csvEsc(prodStr),csvEsc(txnDate),csvEsc(s.notes||'')];
   });
-  var csv=hdrs.join(',')+'\\n'+rows.map(function(r){return r.join(',');}).join('\\n');
+  var csv=hdrs.join(',')+'\n'+rows.map(function(r){return r.join(',');}).join('\n');
   downloadFile(csv,'suppliers.csv','text/csv');
   showToast('CSV exported!','success');
 }
