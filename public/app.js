@@ -1199,7 +1199,12 @@ async function addUser() {
       return;
     }
 
-    showToast('User ' + username + ' (' + role + ') created successfully.', 'success');
+    if (!rpcData || rpcData.success === false) {
+      showToast('Error: ' + ((rpcData && rpcData.error) || 'Unknown error'), 'error');
+      return;
+    }
+
+    showToast('User ' + rpcData.username + ' (' + rpcData.role + ') created successfully.', 'success');
     await openManageUsers();
   } catch (e) {
     showToast('Error: ' + (e.message || 'Unknown error'), 'error');
