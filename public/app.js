@@ -162,7 +162,15 @@ async function handleLogin() {
   $('loginBtn').innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Sign In';
 
   if (error) {
-    $('loginError').textContent = error.message || 'Login failed. Check your credentials.';
+    console.log('Login error details:', JSON.stringify(error));
+    var errMsg = error.message || error.msg || (typeof error === 'object' ? JSON.stringify(error) : String(error)) || 'Login failed.';
+    $('loginError').textContent = errMsg;
+    $('loginError').classList.remove('hidden');
+    return;
+  }
+
+  if (!data || !data.user) {
+    $('loginError').textContent = 'Login returned no user. Session may be invalid.';
     $('loginError').classList.remove('hidden');
     return;
   }
