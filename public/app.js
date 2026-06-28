@@ -49,7 +49,7 @@ function downloadFile(c, f, m) {
 
 // ─── State ─────────────────────────────────────────────
 var suppliers = [], currentPage = 1, pageSize = 10;
-var sortColumn = 'last_transaction_date', sortAsc = true;
+var sortColumn = 'last_transaction_date', sortAsc = false;
 var deleteTargetId = null;
 var currentUser = null;
 var CATEGORIES = [];
