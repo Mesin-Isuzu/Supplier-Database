@@ -1187,51 +1187,25 @@ async function addUser() {
       return;
     }
 
-    // Gunakan signUp GoTrue — password di-hash oleh Auth service sendiri (100% kompatibel)
-    // Simpan session admin sebelum signUp (antisipasi auto-login user baru)
-    var adminSession = (await supabase.auth.getSession()).data.session;
-
-    var { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-      options: {
-        data: { username: username, app_role: role }
-      }
+    // Panggil RPC admin_create_user — GoTrue Admin API via pg_net (no rate limit)
+    var { data: rpcData, error: rpcError } = await supabase.rpc('admin_create_user', {
+      user_email: email,
+      user_password: password,
+      user_username: username,
+      user_role: role
     });
 
-    if (signUpError) {
-      showToast('Error: ' + signUpError.message, 'error');
+    if (rpcError) {
+      showToast('Error: ' + rpcError.message, 'error');
       return;
     }
 
-    if (!signUpData.user) {
-      showToast('Error: User was not created. Check Supabase Auth settings.', 'error');
+    if (!rpcData || rpcData.success === false) {
+      showToast('Error: ' + ((rpcData && rpcData.error) || 'Unknown error'), 'error');
       return;
     }
 
-    // Auto-confirm user — bypass email verification
-    var { error: confirmError } = await supabase.rpc('confirm_user_email', { target_email: email });
-    if (confirmError) {
-      showToast('User created but auto-confirm failed: ' + confirmError.message, 'warning');
-    }
-
-    // Set role di public.users (trigger handle_new_user mungkin sudah set, kita pastikan)
-    var { error: roleError } = await supabase.rpc('ensure_user_profile', {
-      p_user_id: signUpData.user.id,
-      p_username: username,
-      p_role: role
-    });
-
-    if (roleError) {
-      showToast('User created but role update failed: ' + roleError.message, 'warning');
-    }
-
-    // Restore session admin
-    if (adminSession) {
-      await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
-    }
-
-    showToast('User ' + username + ' (' + role + ') created successfully.', 'success');
+    showToast('User ' + rpcData.username + ' (' + rpcData.role + ') created successfully.', 'success');
     await openManageUsers();
   } catch (e) {
     showToast('Error: ' + (e.message || 'Unknown error'), 'error');
