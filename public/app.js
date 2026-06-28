@@ -49,7 +49,7 @@ function downloadFile(c, f, m) {
 
 // ─── State ─────────────────────────────────────────────
 var suppliers = [], currentPage = 1, pageSize = 10;
-var sortColumn = null, sortAsc = true;
+var sortColumn = 'last_transaction_date', sortAsc = false;
 var deleteTargetId = null;
 var currentUser = null;
 var CATEGORIES = [];
@@ -400,6 +400,15 @@ function getFilteredSorted() {
 
 function render() {
   var list = getFilteredSorted();
+
+  // Update sort icon
+  document.querySelectorAll('.sort-icon').forEach(function(el){ el.classList.remove('active');
+    el.className = el.className.replace('fa-sort-up','fa-sort').replace('fa-sort-down','fa-sort'); });
+  if (sortColumn) {
+    var icon = $('sort-' + sortColumn);
+    if (icon) { icon.classList.add('active'); icon.className = icon.className.replace('fa-sort', sortAsc ? 'fa-sort-up' : 'fa-sort-down'); }
+  }
+
   var total = list.length;
   var pages = Math.max(1, Math.ceil(total / pageSize));
   if (currentPage > pages) currentPage = pages;
