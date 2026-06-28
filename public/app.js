@@ -1187,29 +1187,19 @@ async function addUser() {
       return;
     }
 
-    var rpcParams = {
+    var { data: rpcData, error: rpcError } = await supabase.rpc('admin_create_user', {
       user_email: email,
       user_password: password,
       user_username: username,
       user_role: role
-    };
+    });
 
-    var { data: rpcData, error: rpcError } = await supabase.rpc('admin_create_user', rpcParams);
-
-    if (rpcError && rpcError.message.indexOf('Could not find') !== -1) {
-      var { data: fbData, error: fbError } = await supabase.rpc('admin_create_user_fallback', rpcParams);
-      if (fbError) {
-        showToast('Error creating user: ' + fbError.message, 'error');
-        return;
-      }
-      showToast('User ' + username + ' (' + role + ') created successfully.', 'success');
-    } else if (rpcError) {
-      showToast('Error creating user: ' + rpcError.message, 'error');
+    if (rpcError) {
+      showToast('Error: ' + rpcError.message, 'error');
       return;
-    } else {
-      showToast('User ' + username + ' (' + role + ') created successfully.', 'success');
     }
 
+    showToast('User ' + username + ' (' + role + ') created successfully.', 'success');
     await openManageUsers();
   } catch (e) {
     showToast('Error: ' + (e.message || 'Unknown error'), 'error');
