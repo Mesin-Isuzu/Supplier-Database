@@ -118,8 +118,8 @@ function fromSupabase(r) {
     updated_at:      r.updated_at,
     created_by:      r.created_by,
     updated_by:      r.updated_by,
-    creatorUsername: (r.creator && r.creator.username) ? r.creator.username : null,
-    updaterUsername: (r.updater && r.updater.username) ? r.updater.username : null
+    creatorUsername: (r.creator && r.creator.username) ? r.creator.username : '',
+    updaterUsername: (r.updater && r.updater.username) ? r.updater.username : ''
   };
 }
 
@@ -381,6 +381,8 @@ function getFilteredSorted() {
   var q   = ($('searchInput').value || '').toLowerCase();
   var yr  = $('filterYear').value;
   var cat = $('filterCategory').value;
+  var dateFrom = $('filterDateFrom').value;
+  var dateTo   = $('filterDateTo').value;
 
    var list = suppliers.filter(function(s) {
     var matchQ = !q;
@@ -399,6 +401,15 @@ function getFilteredSorted() {
     var matchCt = !cat || (s.categories||[]).includes(cat);
     return matchQ && matchYr && matchCt;
   });
+
+  if (dateFrom || dateTo) {
+    list = list.filter(function(s) {
+      if (!s.lastTransactionDate) return false;
+      if (dateFrom && s.lastTransactionDate < dateFrom) return false;
+      if (dateTo   && s.lastTransactionDate > dateTo)   return false;
+      return true;
+    });
+  }
 
   if (sortColumn) {
     var fieldMap = { 'last_transaction_date': 'lastTransactionDate', 'company_name': 'companyName', 'contact_person': 'contactPerson', 'phone': 'phone' };
@@ -435,6 +446,7 @@ function render() {
   var thisYear = new Date().getFullYear();
   $('statThisYear').textContent = suppliers.filter(function(s){ return s.lastTransactionDate && new Date(s.lastTransactionDate).getFullYear() === thisYear; }).length;
   $('statCategories').textContent = CATEGORIES.length;
+  $('statProducts').textContent   = suppliers.reduce(function(sum, s) { return sum + (s.products || []).length; }, 0);
 
   var tbody = $('tableBody');
   if (!page.length) {
@@ -457,12 +469,7 @@ function render() {
     }).join('');
     if ((s.products||[]).length > 3) prods += '<span class="product-tag">+'+(s.products.length-3)+' more</span>';
 
-    var txnDate = s.lastTransactionDate ? (function(d){
-      var dd = String(d.getDate()).padStart(2,'0');
-      var mmm = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][d.getMonth()];
-      var yy = String(d.getFullYear()).slice(-2);
-      return dd + '/' + mmm + '/' + yy;
-    })(new Date(s.lastTransactionDate)) : '—';
+    var txnDate = s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'2-digit'}) : '—';
     var txnCls = s.lastTransactionDate ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500';
 
     var actions = '<button onclick="openDetailModal('+s.id+')" title="View" class="text-indigo-600 hover:text-indigo-800 mx-1"><i class="fas fa-eye"></i></button>';
@@ -505,7 +512,11 @@ function goPage(p) {
   render();
 }
 
-function onSearch() { currentPage = 1; render(); }
+var _searchTimer = null;
+function onSearch() {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(function() { currentPage = 1; render(); }, 300);
+}
 
 function sortBy(col) {
   document.querySelectorAll('.sort-icon').forEach(function(el){ el.classList.remove('active'); });
@@ -575,14 +586,22 @@ async function saveSupplier() {
     return;
   }
 
+  var editId = $('editId').value;
+  var dup = suppliers.find(function(s) {
+    return s.companyName.toLowerCase() === companyName.toLowerCase() && String(s.id) !== String(editId);
+  });
+  if (dup) { showToast('Supplier dengan nama "' + companyName + '" sudah ada.', 'error'); return; }
+
   var email1 = $('fEmail').value.trim();
   var email2 = $('fEmail2').value.trim();
   var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (email1 && !emailRe.test(email1)) {
-    showToast('Warning: Email 1 format tidak valid', 'warning', 5000);
+    showToast('Email 1 format tidak valid.', 'error');
+    return;
   }
   if (email2 && !emailRe.test(email2)) {
-    showToast('Warning: Email 2 format tidak valid', 'warning', 5000);
+    showToast('Email 2 format tidak valid.', 'error');
+    return;
   }
 
   var txnDate = $('fTransactionDate').value || null;
@@ -621,7 +640,6 @@ async function saveSupplier() {
   };
 
   showLoading();
-  var editId = $('editId').value;
   var error;
 
   if (editId) {
@@ -782,6 +800,7 @@ function openDetailModal(id) {
     '</div></div>' +
     '<div class="p-6 border-t border-gray-200 flex justify-end gap-3">';
   if (window.__canEdit) h += '<button onclick="closeDetailModal();openEditModal('+s.id+')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"><i class="fas fa-edit mr-1"></i>Edit</button>';
+  if (currentUser && currentUser.role === 'Admin') h += '<button onclick="openAuditLogModal('+s.id+')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition"><i class="fas fa-history mr-1"></i>Audit Log</button>';
   h += '</div>';
   $('detailContent').innerHTML = h;
   $('detailModal').classList.remove('hidden');
@@ -1035,6 +1054,26 @@ async function downloadTemplate() {
   showToast('Template downloaded!','success');
 }
 
+// ─── Theme ──────────────────────────────────────────────
+function initTheme() {
+  var saved = localStorage.getItem('theme');
+  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var theme = saved || (prefersDark ? 'dark' : 'light');
+  applyTheme(theme);
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+  var icon = $('themeToggleIcon');
+  if (icon) icon.className = 'fas ' + (theme === 'dark' ? 'fa-sun' : 'fa-moon');
+}
+
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'light';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
 // ─── Manage Users ───────────────────────────────────────
 async function openManageUsers() {
   $('userModal').classList.remove('hidden');
@@ -1120,87 +1159,50 @@ async function deleteUser(userId) {
 }
 
 async function addUser() {
-  try {
-    var username = $('fNewUserUsername').value.trim();
-    var email    = $('fNewUserEmail').value.trim();
-    var password = $('fNewUserPassword').value.trim();
-    var role     = $('fNewUserRole').value;
-    if (!username || !email || !password) { showToast('Please fill all fields.', 'error'); return; }
-    $('fNewUserUsername').value = ''; $('fNewUserEmail').value = ''; $('fNewUserPassword').value = '';
-    showLoading();
+  var username = $('fNewUserUsername').value.trim();
+  var email    = $('fNewUserEmail').value.trim();
+  var password = $('fNewUserPassword').value.trim();
+  var role     = $('fNewUserRole').value;
+  if (!username || !email || !password) { showToast('Please fill all fields.', 'error'); return; }
+  $('fNewUserUsername').value = ''; $('fNewUserEmail').value = ''; $('fNewUserPassword').value = '';
+  showLoading();
 
+  try {
     var { data: dupData, error: dupError } = await supabase.rpc('check_user_duplicate', {
       p_email: email,
       p_username: username
     });
     if (dupError) {
-      hideLoading();
       showToast('Error: ' + dupError.message, 'error');
       return;
     }
     if (dupData?.email_exists) {
-      hideLoading();
       showToast('Email already registered.', 'error');
       return;
     }
     if (dupData?.username_exists) {
-      hideLoading();
       showToast('Username already taken.', 'error');
       return;
     }
 
-    var serviceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqbHJuaXpwbG94dWJ4a290cmluIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjMxNzI0NSwiZXhwIjoyMDk3ODkzMjQ1fQ.DRk1HMyjNGrjcv_KVL-j8JV8HCWvey2cVvRN_OWc-mM';
-    var apiUrl = 'https://fjlrnizploxubxkotrin.supabase.co/auth/v1/admin/users';
-
-    var httpResp = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + serviceRoleKey,
-        'Content-Type': 'application/json',
-        'apikey': serviceRoleKey
-      },
-      body: JSON.stringify({
-        email: email,
-        password: password,
-        email_confirm: true,
-        user_metadata: { username: username, app_role: role },
-        app_metadata: { provider: 'email', providers: ['email'] }
-      })
+    var { data: rpcData, error: rpcError } = await supabase.rpc('admin_create_user', {
+      user_email: email,
+      user_password: password,
+      user_username: username,
+      user_role: role
     });
 
-    if (!httpResp.ok) {
-      var errText = await httpResp.text();
-      hideLoading();
-      showToast('Error: ' + errText, 'error');
+    if (rpcError) {
+      showToast('Error creating user: ' + rpcError.message, 'error');
       return;
     }
 
-    var respJson = await httpResp.json();
-    var newUserId = respJson.id;
-
-    if (!newUserId) {
-      hideLoading();
-      showToast('Error: No user ID returned', 'error');
-      return;
-    }
-
-    var { error: insertError } = await supabase
-      .from('users')
-      .upsert({ id: newUserId, username: username, role: role }, { onConflict: 'id' })
-      .select('id')
-      .single();
-
-    if (insertError) {
-      showToast('User created but profile insert failed: ' + insertError.message, 'error', 8000);
-    }
-
-    hideLoading();
-
-    showToast('Created: ' + username + ' (' + role + ') | ' + email + ' | ' + password, 'success', 10000);
+    showToast('User ' + username + ' (' + role + ') created successfully.', 'success');
     await openManageUsers();
   } catch (e) {
-    hideLoading();
     showToast('Error: ' + (e.message || 'Unknown error'), 'error');
+  } finally {
+    hideLoading();
   }
 }
 
@@ -1662,8 +1664,61 @@ function renderSummaryCharts() {
   });
 }
 
+// ─── Audit Log ─────────────────────────────────────────────
+async function openAuditLogModal(supplierId) {
+  closeDetailModal();
+  $('auditModal').classList.remove('hidden');
+  $('auditModal').classList.add('flex');
+  $('auditTableBody').innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr>';
+
+  var { data, error } = await supabase.rpc('get_supplier_logs', { p_supplier_id: supplierId });
+  if (error) {
+    $('auditTableBody').innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-red-400 text-sm">Error: ' + escHtml(error.message) + '</td></tr>';
+    return;
+  }
+
+  var actionIcon = { 'INSERT': '&#x2795;', 'UPDATE': '&#x270F;&#xFE0F;', 'DELETE': '&#x1F5D1;&#xFE0F;' };
+  var actionColor = { 'INSERT': 'text-green-600', 'UPDATE': 'text-amber-600', 'DELETE': 'text-red-600' };
+
+  $('auditTableBody').innerHTML = (data || []).map(function(log) {
+    var changesHtml = '';
+    if (log.action === 'UPDATE' && log.old_data && log.new_data) {
+      var diff = getJsonDiff(log.old_data, log.new_data);
+      changesHtml = '<button onclick="var el=this.nextElementSibling;el.classList.toggle(\'hidden\')" class="text-xs text-indigo-600 hover:underline">' + diff.length + ' change(s)</button>' +
+        '<pre class="hidden mt-1 text-xs bg-gray-50 p-2 rounded max-h-32 overflow-auto whitespace-pre-wrap">' + escHtml(JSON.stringify(diff, null, 2)) + '</pre>';
+    } else if (log.action === 'INSERT') {
+      changesHtml = '<span class="text-xs text-gray-400">Record created</span>';
+    } else {
+      changesHtml = '<span class="text-xs text-gray-400">Record deleted</span>';
+    }
+    return '<tr class="border-b border-gray-100 table-row-hover">' +
+      '<td class="px-3 py-2 text-xs text-gray-500">' + new Date(log.changed_at).toLocaleString('id-ID') + '</td>' +
+      '<td class="px-3 py-2"><span class="' + (actionColor[log.action] || '') + ' font-medium text-sm">' + (actionIcon[log.action] || '') + ' ' + log.action + '</span></td>' +
+      '<td class="px-3 py-2 text-sm">' + escHtml(log.username || 'System') + '</td>' +
+      '<td class="px-3 py-2">' + changesHtml + '</td>' +
+      '</tr>';
+  }).join('') || '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm">No audit records found.</td></tr>';
+}
+
+function getJsonDiff(oldData, newData) {
+  var changes = [];
+  var keys = Object.keys(Object.assign({}, oldData, newData));
+  keys.forEach(function(k) {
+    if (k === 'updated_at' || k === 'updated_by') return;
+    var ov = JSON.stringify(oldData[k]), nv = JSON.stringify(newData[k]);
+    if (ov !== nv) changes.push({ field: k, old: oldData[k], new: newData[k] });
+  });
+  return changes;
+}
+
+function closeAuditModal() {
+  $('auditModal').classList.add('hidden');
+  $('auditModal').classList.remove('flex');
+}
+
 // ─── Init ───────────────────────────────────────────────
 async function init() {
+  initTheme();
   hideLoading();
   await initSupabase();
   if (!supabase) return;
