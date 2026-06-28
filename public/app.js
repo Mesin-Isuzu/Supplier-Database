@@ -1214,6 +1214,8 @@ async function addUser() {
     }
 
     showToast('User ' + rpcData.username + ' (' + rpcData.role + ') created successfully.', 'success');
+    // Brief delay for GoTrue background worker to process
+    await new Promise(function(r) { setTimeout(r, 3000); });
     await openManageUsers();
   } catch (e) {
     showToast('Error: ' + (e.message || 'Unknown error'), 'error');
