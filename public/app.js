@@ -1520,7 +1520,8 @@ function renderSummaryCharts() {
   var twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), 1);
   var oneYearAgo  = new Date(now.getFullYear() - 1, now.getMonth(), 1);
   var myColors = monthYearData.map(function(e) {
-    var d = new Date(e.sortKey);
+    var parts = e.sortKey.split('-');
+    var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
     if (d < twoYearsAgo) return '#ef4444';      // merah: > 2 tahun
     if (d < oneYearAgo)  return '#f59e0b';      // kuning: 1 - 2 tahun
     return '#10b981';                           // hijau: < 1 tahun
