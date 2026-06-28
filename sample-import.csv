@@ -1,4 +1,4 @@
-Company Name,Contact Person,Phone,Email,Address,Categories,Products,Status,Notes
-PT Test Sejahtera,Budi Test,021-1234567,budi@test.com,Jl. Test No. 1,Raw Materials;Packaging,Steel Bars;PVC Pipes,Active,Test import
-CV Contoh Jaya,Siti Contoh,022-7654321,siti@contoh.com,Jl. Contoh No. 2,Electronics,Resistors;Capacitors;LEDs,Active,Supplier elektronik
-UD Percobaan,Ahmad Coba,031-5555555,ahmad@coba.com,Jl. Coba No. 3,Stationery,Paper;Pens;Markers,Inactive,
+Company Name,Contact Person 1,Contact Person 2,Phone 1,Phone 2,Email 1,Email 2,Website,Address,Location,Categories,Products,Last Transaction Date,Notes
+PT Test Sejahtera,Budi Test,,021-1234567,,budi@test.com,,https://test.com,Jl. Test No. 1,https://maps.google.com/?q=Jakarta,Raw Materials;Packaging,Steel Bars;PVC Pipes,2026-06-15,Test import
+CV Contoh Jaya,Siti Contoh,Andi Contoh,022-7654321,0812345678,siti@contoh.com,andi@contoh.com,,Jl. Contoh No. 2,,Electronics,Resistors;Capacitors;LEDs,,Supplier elektronik
+UD Percobaan,Ahmad Coba,,031-5555555,,ahmad@coba.com,,,Jl. Coba No. 3,,Stationery,Paper;Pens;Markers,,

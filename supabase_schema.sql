@@ -70,15 +70,17 @@ CREATE TABLE IF NOT EXISTS public.suppliers (
   id             SERIAL      PRIMARY KEY,
   company_name   TEXT        NOT NULL,
   contact_person TEXT        NOT NULL,
+  contact_person_2 TEXT,
   phone          TEXT        NOT NULL,
+  phone_2        TEXT,
   email          TEXT,
+  email_2        TEXT,
   website        TEXT,
   address        TEXT,
   location       TEXT,
   categories     JSONB       NOT NULL DEFAULT '[]',
   products       JSONB       NOT NULL DEFAULT '[]',
-  status         TEXT        NOT NULL DEFAULT 'Active'
-                             CHECK (status IN ('Active', 'Inactive')),
+  last_transaction_date DATE,
   notes          TEXT,
   created_at     TIMESTAMPTZ DEFAULT NOW(),
   updated_at     TIMESTAMPTZ DEFAULT NOW(),
@@ -149,7 +151,7 @@ CREATE TRIGGER suppliers_audit_log
 
 -- Suppliers: B-Tree indexes untuk kolom yang sering di-query/sort
 CREATE INDEX IF NOT EXISTS idx_suppliers_company_name  ON public.suppliers (company_name);
-CREATE INDEX IF NOT EXISTS idx_suppliers_status         ON public.suppliers (status);
+CREATE INDEX IF NOT EXISTS idx_suppliers_last_txn_date ON public.suppliers (last_transaction_date DESC);
 CREATE INDEX IF NOT EXISTS idx_suppliers_created_by     ON public.suppliers (created_by);
 CREATE INDEX IF NOT EXISTS idx_suppliers_updated_by     ON public.suppliers (updated_by);
 CREATE INDEX IF NOT EXISTS idx_suppliers_created_at     ON public.suppliers (created_at DESC);
@@ -159,13 +161,15 @@ CREATE INDEX IF NOT EXISTS idx_suppliers_categories_gin ON public.suppliers USIN
 -- Suppliers: GIN index untuk JSONB array products (mendukung pencarian nama produk)
 CREATE INDEX IF NOT EXISTS idx_suppliers_products_gin   ON public.suppliers USING GIN (products);
 
--- Suppliers: Full-text search index (company_name + contact_person + notes)
+-- Suppliers: Full-text search index
 CREATE INDEX IF NOT EXISTS idx_suppliers_fts ON public.suppliers
   USING GIN (
     to_tsvector('simple',
       COALESCE(company_name, '') || ' ' ||
       COALESCE(contact_person, '') || ' ' ||
+      COALESCE(contact_person_2, '') || ' ' ||
       COALESCE(email, '') || ' ' ||
+      COALESCE(email_2, '') || ' ' ||
       COALESCE(notes, '')
     )
   );
@@ -287,16 +291,14 @@ CREATE OR REPLACE FUNCTION public.get_dashboard_stats()
 RETURNS JSON AS $$
 DECLARE
   total_suppliers   INT;
-  active_suppliers  INT;
-  inactive_suppliers INT;
+  this_year         INT;
   total_categories  INT;
   total_products    BIGINT;
 BEGIN
   SELECT
     COUNT(*),
-    COUNT(*) FILTER (WHERE status = 'Active'),
-    COUNT(*) FILTER (WHERE status = 'Inactive')
-  INTO total_suppliers, active_suppliers, inactive_suppliers
+    COUNT(*) FILTER (WHERE EXTRACT(YEAR FROM last_transaction_date) = EXTRACT(YEAR FROM NOW()))
+  INTO total_suppliers, this_year
   FROM public.suppliers;
 
   SELECT COUNT(*) INTO total_categories FROM public.categories;
@@ -307,8 +309,7 @@ BEGIN
 
   RETURN json_build_object(
     'total_suppliers',    total_suppliers,
-    'active_suppliers',   active_suppliers,
-    'inactive_suppliers', inactive_suppliers,
+    'this_year',          this_year,
     'total_categories',   total_categories,
     'total_products',     total_products
   );
@@ -379,7 +380,9 @@ BEGIN
     WHERE to_tsvector('simple',
         COALESCE(s.company_name, '') || ' ' ||
         COALESCE(s.contact_person, '') || ' ' ||
+        COALESCE(s.contact_person_2, '') || ' ' ||
         COALESCE(s.email, '') || ' ' ||
+        COALESCE(s.email_2, '') || ' ' ||
         COALESCE(s.notes, '')
       ) @@ plainto_tsquery('simple', query)
     ORDER BY
@@ -387,7 +390,9 @@ BEGIN
         to_tsvector('simple',
           COALESCE(s.company_name, '') || ' ' ||
           COALESCE(s.contact_person, '') || ' ' ||
+          COALESCE(s.contact_person_2, '') || ' ' ||
           COALESCE(s.email, '') || ' ' ||
+          COALESCE(s.email_2, '') || ' ' ||
           COALESCE(s.notes, '')
         ),
         plainto_tsquery('simple', query)

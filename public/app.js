@@ -65,39 +65,45 @@ var paletteIdx = 0;
 // ─── Field Mapper (camelCase ↔ snake_case) ───────────────
 function toSupabase(s) {
   return {
-    company_name:   s.companyName   || '',
-    contact_person: s.contactPerson || '',
-    phone:          s.phone         || '',
-    email:          s.email         || '',
-    website:        s.website       || '',
-    address:        s.address       || '',
-    location:       s.location      || '',
-    categories:     s.categories    || [],
-    products:       (s.products || []).map(function(p) {
+    company_name:     s.companyName   || '',
+    contact_person:   s.contactPerson || '',
+    contact_person_2: s.contactPerson2 || '',
+    phone:            s.phone         || '',
+    phone_2:          s.phone2        || '',
+    email:            s.email         || '',
+    email_2:          s.email2        || '',
+    website:          s.website       || '',
+    address:          s.address       || '',
+    location:         s.location      || '',
+    categories:       s.categories    || [],
+    products:         (s.products || []).map(function(p) {
       return typeof p === 'string' ? {name:p, image:'', category:''} : p;
     }),
-    status:         s.status        || 'Active',
-    notes:          s.notes         || ''
+    last_transaction_date: s.lastTransactionDate || null,
+    notes:            s.notes         || ''
   };
 }
 function fromSupabase(r) {
   return {
-    id:            r.id,
-    companyName:   r.company_name,
-    contactPerson: r.contact_person,
-    phone:         r.phone,
-    email:         r.email         || '',
-    website:       r.website       || '',
-    address:       r.address       || '',
-    location:      r.location      || '',
-    categories:    Array.isArray(r.categories) ? r.categories : [],
-    products:      Array.isArray(r.products)   ? r.products   : [],
-    status:        r.status,
-    notes:         r.notes         || '',
-    created_at:    r.created_at,
-    updated_at:    r.updated_at,
-    created_by:    r.created_by,
-    updated_by:    r.updated_by,
+    id:              r.id,
+    companyName:     r.company_name,
+    contactPerson:   r.contact_person,
+    contactPerson2:  r.contact_person_2 || '',
+    phone:           r.phone,
+    phone2:          r.phone_2 || '',
+    email:           r.email         || '',
+    email2:          r.email_2       || '',
+    website:         r.website       || '',
+    address:         r.address       || '',
+    location:        r.location      || '',
+    categories:      Array.isArray(r.categories) ? r.categories : [],
+    products:        Array.isArray(r.products)   ? r.products   : [],
+    lastTransactionDate: r.last_transaction_date || null,
+    notes:           r.notes         || '',
+    created_at:      r.created_at,
+    updated_at:      r.updated_at,
+    created_by:      r.created_by,
+    updated_by:      r.updated_by,
     creatorUsername: (r.creator && r.creator.username) ? r.creator.username : null,
     updaterUsername: (r.updater && r.updater.username) ? r.updater.username : null
   };
@@ -247,6 +253,8 @@ async function onLoginSuccess() {
   updateNavbar();
   showLoading();
   await Promise.all([loadCategories(), loadSuppliers()]);
+  populateCategoryFilter();
+  populateYearFilter();
   hideLoading();
   render();
   showToast('Welcome, ' + currentUser.username + '!', 'success');
@@ -335,10 +343,29 @@ function populateCategoryFilter() {
   });
 }
 
+function populateYearFilter() {
+  var sel = $('filterYear');
+  var prev = sel.value;
+  sel.innerHTML = '<option value="">All Years</option>';
+  var years = {};
+  suppliers.forEach(function(s) {
+    if (s.lastTransactionDate) {
+      var yr = new Date(s.lastTransactionDate).getFullYear();
+      years[yr] = true;
+    }
+  });
+  Object.keys(years).sort(function(a, b) { return b - a; }).forEach(function(yr) {
+    var o = document.createElement('option');
+    o.value = yr; o.textContent = yr;
+    if (yr.toString() === prev) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
 // ─── Render Table ───────────────────────────────────────
 function getFilteredSorted() {
   var q   = ($('searchInput').value || '').toLowerCase();
-  var st  = $('filterStatus').value;
+  var yr  = $('filterYear').value;
   var cat = $('filterCategory').value;
 
    var list = suppliers.filter(function(s) {
@@ -349,13 +376,14 @@ function getFilteredSorted() {
       }).join(' ').toLowerCase();
       matchQ = s.companyName.toLowerCase().includes(q) ||
                (s.contactPerson||'').toLowerCase().includes(q) ||
+               (s.contactPerson2||'').toLowerCase().includes(q) ||
                (s.phone||'').toLowerCase().includes(q) ||
                (s.email||'').toLowerCase().includes(q) ||
                productStr.includes(q);
     }
-    var matchSt = !st  || s.status === st;
+    var matchYr = !yr || (s.lastTransactionDate && new Date(s.lastTransactionDate).getFullYear().toString() === yr);
     var matchCt = !cat || (s.categories||[]).includes(cat);
-    return matchQ && matchSt && matchCt;
+    return matchQ && matchYr && matchCt;
   });
 
   if (sortColumn) {
@@ -379,7 +407,8 @@ function render() {
   var page  = list.slice(start, start + pageSize);
 
   $('statTotal').textContent    = suppliers.length;
-  $('statActive').textContent   = suppliers.filter(function(s){return s.status==='Active';}).length;
+  var thisYear = new Date().getFullYear();
+  $('statThisYear').textContent = suppliers.filter(function(s){ return s.lastTransactionDate && new Date(s.lastTransactionDate).getFullYear() === thisYear; }).length;
   $('statCategories').textContent = CATEGORIES.length;
 
   var tbody = $('tableBody');
@@ -403,9 +432,8 @@ function render() {
     }).join('');
     if ((s.products||[]).length > 3) prods += '<span class="product-tag">+'+(s.products.length-3)+' more</span>';
 
-    var statusCls = s.status==='Active'
-      ? 'bg-green-100 text-green-700'
-      : 'bg-gray-100 text-gray-500';
+    var txnDate = s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID') : '—';
+    var txnCls = s.lastTransactionDate ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500';
 
     var actions = '<button onclick="openDetailModal('+s.id+')" title="View" class="text-indigo-600 hover:text-indigo-800 mx-1"><i class="fas fa-eye"></i></button>';
     if (window.__canEdit)   actions += '<button onclick="openEditModal('+s.id+')" title="Edit" class="text-yellow-500 hover:text-yellow-700 mx-1"><i class="fas fa-edit"></i></button>';
@@ -413,11 +441,11 @@ function render() {
 
     return '<tr class="table-row-hover border-b border-gray-100">' +
       '<td class="px-4 py-3 font-medium" data-label="Company">'+escHtml(s.companyName)+'</td>' +
-      '<td class="px-4 py-3 text-gray-600" data-label="Contact">'+escHtml(s.contactPerson)+'<br><span class="text-xs text-gray-400">'+escHtml(s.phone)+'</span></td>' +
-      '<td class="px-4 py-3 text-gray-600 hidden md:table-cell" data-label="Phone">'+escHtml(s.phone)+'</td>' +
+      '<td class="px-4 py-3 text-gray-600" data-label="Contact">'+escHtml(s.contactPerson)+(s.contactPerson2?'<br><span class="text-xs text-gray-400">'+escHtml(s.contactPerson2)+'</span>':'')+'<br><span class="text-xs text-gray-400">'+escHtml(s.phone)+(s.phone2?' / '+escHtml(s.phone2):'')+'</span></td>' +
+      '<td class="px-4 py-3 text-gray-600 hidden md:table-cell" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br><span class="text-xs text-gray-400">'+escHtml(s.phone2)+'</span>':'')+'</td>' +
       '<td class="px-4 py-3" data-label="Categories">'+cats+'</td>' +
       '<td class="px-4 py-3" data-label="Products">'+prods+'</td>' +
-      '<td class="px-4 py-3 text-center md:text-center" data-label="Status"><span class="text-xs font-medium px-2 py-1 rounded-full '+statusCls+'">'+s.status+'</span></td>' +
+      '<td class="px-4 py-3 text-center md:text-center" data-label="Status"><span class="text-xs font-medium px-2 py-1 rounded-full '+txnCls+'">'+txnDate+'</span></td>' +
       '<td class="px-4 py-3 text-center md:text-center" data-label="Actions">'+actions+'</td>' +
       '</tr>';
   }).join('');
@@ -463,12 +491,15 @@ function openAddModal() {
   $('modalTitle').textContent = 'Add Supplier';
   $('fCompanyName').value = '';
   $('fContactPerson').value = '';
+  $('fContactPerson2').value = '';
   $('fPhone').value = '';
+  $('fPhone2').value = '';
   $('fEmail').value = '';
+  $('fEmail2').value = '';
   $('fWebsite').value = '';
   $('fAddress').value = '';
   $('fLocation').value = '';
-  $('fStatus').value = 'Active';
+  $('fTransactionDate').value = '';
   $('fNotes').value = '';
   $('productsList').innerHTML = '';
   $('addEditModal').classList.remove('hidden');
@@ -482,12 +513,15 @@ function openEditModal(id) {
   $('modalTitle').textContent = 'Edit Supplier';
   $('fCompanyName').value  = s.companyName  || '';
   $('fContactPerson').value = s.contactPerson || '';
+  $('fContactPerson2').value = s.contactPerson2 || '';
   $('fPhone').value    = s.phone    || '';
+  $('fPhone2').value   = s.phone2   || '';
   $('fEmail').value    = s.email    || '';
+  $('fEmail2').value   = s.email2   || '';
   $('fWebsite').value  = s.website  || '';
   $('fAddress').value  = s.address  || '';
   $('fLocation').value = s.location || '';
-  $('fStatus').value   = s.status   || 'Active';
+  $('fTransactionDate').value = s.lastTransactionDate || '';
   $('fNotes').value    = s.notes    || '';
   $('productsList').innerHTML = '';
   (s.products||[]).forEach(function(p){ addProductField(p); });
@@ -505,9 +539,11 @@ async function saveSupplier() {
   var contactPerson = $('fContactPerson').value.trim();
   var phone         = $('fPhone').value.trim();
   if (!companyName || !contactPerson || !phone) {
-    showToast('Company Name, Contact Person, and Phone are required.', 'error');
+    showToast('Company Name, Contact Person 1, and Phone 1 are required.', 'error');
     return;
   }
+
+  var txnDate = $('fTransactionDate').value || null;
 
   // Collect products from table rows
   var productRows = $('productsList').querySelectorAll('tr');
@@ -521,23 +557,25 @@ async function saveSupplier() {
     if (name) products.push({ name: name, category: cat, image: img });
   });
 
-  // Derive categories from products
   var catSet = {};
   products.forEach(function(p){ if(p.category) catSet[p.category] = true; });
   var categories = Object.keys(catSet);
 
   var payload = {
-    company_name:   companyName,
-    contact_person: contactPerson,
-    phone:          phone,
-    email:          $('fEmail').value.trim(),
-    website:        $('fWebsite').value.trim(),
-    address:        $('fAddress').value.trim(),
-    location:       $('fLocation').value.trim(),
-    categories:     categories,
-    products:       products,
-    status:         $('fStatus').value,
-    notes:          $('fNotes').value.trim()
+    company_name:     companyName,
+    contact_person:   contactPerson,
+    contact_person_2: $('fContactPerson2').value.trim(),
+    phone:            phone,
+    phone_2:          $('fPhone2').value.trim(),
+    email:            $('fEmail').value.trim(),
+    email_2:          $('fEmail2').value.trim(),
+    website:          $('fWebsite').value.trim(),
+    address:          $('fAddress').value.trim(),
+    location:         $('fLocation').value.trim(),
+    categories:       categories,
+    products:         products,
+    last_transaction_date: txnDate,
+    notes:            $('fNotes').value.trim()
   };
 
   showLoading();
@@ -687,12 +725,11 @@ function openDetailModal(id) {
     '<button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 text-xl"><i class="fas fa-times"></i></button>' +
     '</div><div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">' +
     '<div class="space-y-3">' +
-    '<div><div class="text-xs text-gray-400 uppercase mb-1">Contact</div><div class="font-medium">'+escHtml(s.contactPerson)+'</div></div>' +
-    '<div><div class="text-xs text-gray-400 uppercase mb-1">Phone</div><div>'+escHtml(s.phone)+'</div></div>' +
-    (s.email?'<div><div class="text-xs text-gray-400 uppercase mb-1">Email</div><a href="mailto:'+escHtml(s.email)+'" class="text-indigo-600 hover:underline">'+escHtml(s.email)+'</a></div>':'') +
+    '<div><div class="text-xs text-gray-400 uppercase mb-1">Contact Person 1</div><div class="font-medium">'+escHtml(s.contactPerson)+'</div><div class="text-sm text-gray-500">'+escHtml(s.phone)+'</div>'+(s.email?'<a href="mailto:'+escHtml(s.email)+'" class="text-indigo-600 hover:underline text-sm">'+escHtml(s.email)+'</a>':'')+'</div>' +
+    (s.contactPerson2?'<div><div class="text-xs text-gray-400 uppercase mb-1">Contact Person 2</div><div class="font-medium">'+escHtml(s.contactPerson2)+'</div><div class="text-sm text-gray-500">'+escHtml(s.phone2||'')+'</div>'+(s.email2?'<a href="mailto:'+escHtml(s.email2)+'" class="text-indigo-600 hover:underline text-sm">'+escHtml(s.email2)+'</a>':'')+'</div>':'') +
     (s.website?'<div><div class="text-xs text-gray-400 uppercase mb-1">Website</div><a href="'+escHtml(s.website)+'" target="_blank" class="text-indigo-600 hover:underline">'+escHtml(s.website)+'</a></div>':'') +
     (s.address?'<div><div class="text-xs text-gray-400 uppercase mb-1">Address</div><div>'+escHtml(s.address)+'</div></div>':'') +
-    '<div><div class="text-xs text-gray-400 uppercase mb-1">Status</div><span class="text-xs font-medium px-2 py-1 rounded-full '+(s.status==='Active'?'bg-green-100 text-green-700':'bg-gray-100 text-gray-500')+'">'+s.status+'</span></div>' +
+    '<div><div class="text-xs text-gray-400 uppercase mb-1">Last Transaction</div><div class="font-medium">'+(s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID') : '—')+'</div></div>' +
     '<div><div class="text-xs text-gray-400 uppercase mb-1">Categories</div>'+cats+'</div>' +
     (s.notes?'<div><div class="text-xs text-gray-400 uppercase mb-1">Notes</div><div class="text-sm text-gray-600">'+escHtml(s.notes)+'</div></div>':'') +
     auditHTML +
@@ -855,17 +892,20 @@ function parseXLSX(data) {
 async function processImportData(headers, rows) {
   var hLower = headers.map(function(h){return h.toString().toLowerCase().trim();});
   var colKeys = {
-    companyName:   ['company name','company','perusahaan','nama perusahaan','supplier'],
-    contactPerson: ['contact person','contact','pic','kontak','nama kontak'],
-    phone:         ['phone','telephone','telp','telepon','no telp','hp','no hp'],
-    email:         ['email','e-mail'],
-    website:       ['website','web','site'],
-    address:       ['address','alamat'],
-    location:      ['location','maps','google maps','lokasi','map'],
-    categories:    ['categories','category','kategori','cat'],
-    products:      ['products','product','produk','barang'],
-    status:        ['status'],
-    notes:         ['notes','note','keterangan','remark']
+    companyName:    ['company name','company','perusahaan','nama perusahaan','supplier'],
+    contactPerson:  ['contact person','contact','pic','kontak','nama kontak','contact person 1'],
+    contactPerson2: ['contact person 2','contact 2','pic 2','kontak 2'],
+    phone:          ['phone','telephone','telp','telepon','no telp','hp','no hp','phone 1'],
+    phone2:         ['phone 2','telp 2','hp 2','no hp 2'],
+    email:          ['email','e-mail','email 1'],
+    email2:         ['email 2','e-mail 2'],
+    website:        ['website','web','site'],
+    address:        ['address','alamat'],
+    location:       ['location','maps','google maps','lokasi','map'],
+    categories:     ['categories','category','kategori','cat'],
+    products:       ['products','product','produk','barang'],
+    lastTransactionDate: ['last transaction','last transaction date','transaction date','tanggal transaksi','tgl transaksi'],
+    notes:          ['notes','note','keterangan','remark']
   };
   var map={};
   for (var key in colKeys) {
@@ -883,23 +923,28 @@ async function processImportData(headers, rows) {
     if(typeof row==='string') row=[row];
     var cn=(row[map.companyName]||'').toString().trim(); if(!cn){skipped++;return;}
     var cp=(map.contactPerson!==undefined?row[map.contactPerson]:'').toString().trim()||cn;
+    var cp2=(map.contactPerson2!==undefined?row[map.contactPerson2]:'').toString().trim();
     var ph=(map.phone!==undefined?row[map.phone]:'').toString().trim()||'-';
+    var ph2=(map.phone2!==undefined?row[map.phone2]:'').toString().trim();
+    var em=(map.email!==undefined?row[map.email]:'').toString().trim();
+    var em2=(map.email2!==undefined?row[map.email2]:'').toString().trim();
     var categories=[];
     if(map.categories!==undefined){var raw=(row[map.categories]||'').toString().trim();if(raw)categories=raw.split(/[,;\/]/).map(function(s){return s.trim();}).filter(Boolean);}
     if(!categories.length) categories=['General Part'];
     var defCat=categories[0];
     var products=[];
     if(map.products!==undefined){var pRaw=(row[map.products]||'').toString().trim();if(pRaw)pRaw.split(/[,;]/).forEach(function(n){n=n.trim();if(n)products.push({name:n,image:'',category:defCat});});}
-    var status=(map.status!==undefined?row[map.status]:'').toString().trim();
-    if(status!=='Active'&&status!=='Inactive') status='Active';
+    var txnDate = (map.lastTransactionDate!==undefined?row[map.lastTransactionDate]:'').toString().trim() || null;
     batch.push({
-      company_name:   cn, contact_person: cp, phone: ph,
-      email:          (map.email!==undefined?row[map.email]:'').toString().trim(),
-      website:        (map.website!==undefined?row[map.website]:'').toString().trim(),
-      address:        (map.address!==undefined?row[map.address]:'').toString().trim(),
-      location:       (map.location!==undefined?row[map.location]:'').toString().trim(),
-      categories:     categories, products: products, status: status,
-      notes:          (map.notes!==undefined?row[map.notes]:'').toString().trim()
+      company_name:     cn, contact_person: cp, contact_person_2: cp2,
+      phone:            ph, phone_2: ph2,
+      email:            em, email_2: em2,
+      website:          (map.website!==undefined?row[map.website]:'').toString().trim(),
+      address:          (map.address!==undefined?row[map.address]:'').toString().trim(),
+      location:         (map.location!==undefined?row[map.location]:'').toString().trim(),
+      categories:       categories, products: products,
+      last_transaction_date: txnDate,
+      notes:            (map.notes!==undefined?row[map.notes]:'').toString().trim()
     });
   });
 
@@ -919,12 +964,14 @@ async function processImportData(headers, rows) {
 }
 
 function exportCSV() {
-  var hdrs=['Company Name','Contact Person','Phone','Email','Website','Address','Location','Categories','Products','Status','Notes'];
+  var hdrs=['Company Name','Contact Person 1','Contact Person 2','Phone 1','Phone 2','Email 1','Email 2','Website','Address','Location','Categories','Products','Last Transaction Date','Notes'];
   var rows = suppliers.map(function(s){
     var prodStr=(s.products||[]).map(function(p){return typeof p==='string'?p:p.name;}).join(', ');
-    return [csvEsc(s.companyName),csvEsc(s.contactPerson),csvEsc(s.phone),csvEsc(s.email||''),
+    var txnDate = s.lastTransactionDate || '';
+    return [csvEsc(s.companyName),csvEsc(s.contactPerson),csvEsc(s.contactPerson2||''),
+            csvEsc(s.phone),csvEsc(s.phone2||''),csvEsc(s.email||''),csvEsc(s.email2||''),
             csvEsc(s.website||''),csvEsc(s.address||''),csvEsc(s.location||''),
-            csvEsc((s.categories||[]).join(', ')),csvEsc(prodStr),s.status,csvEsc(s.notes||'')];
+            csvEsc((s.categories||[]).join(', ')),csvEsc(prodStr),csvEsc(txnDate),csvEsc(s.notes||'')];
   });
   var csv=hdrs.join(',')+'\\n'+rows.map(function(r){return r.join(',');}).join('\\n');
   downloadFile(csv,'suppliers.csv','text/csv');
@@ -932,11 +979,11 @@ function exportCSV() {
 }
 
 function downloadTemplate() {
-  var hdrs=['Company Name','Contact Person','Phone','Email','Website','Address','Location','Categories','Products','Status','Notes'];
+  var hdrs=['Company Name','Contact Person 1','Contact Person 2','Phone 1','Phone 2','Email 1','Email 2','Website','Address','Location','Categories','Products','Last Transaction Date','Notes'];
   var rows=[
-    ['PT Maju Jaya','Budi Santoso','021-5550123','budi@maju.co.id','https://maju.co.id','Jl. Gatot Subroto No.10','https://maps.google.com/?q=Jakarta','Raw Materials;Packaging','Steel Sheets;Aluminum Bars','Active','Long-term partner since 2020'],
-    ['CV Teknik Prima','Siti Rahma','022-7890456','siti@prima.com','','Jl. Asia Afrika No.45','','Electronics','PCB Assemblies;Microcontrollers','Active','ISO certified'],
-    ['UD Berkah Abadi','Ahmad Fauzi','0341-123456','ahmad@abadi.com','','Jl. Ijen No.7','','Stationery;General Part','Paper;Pens;Markers','Inactive','Minimum order 100 pcs']
+    ['PT Maju Jaya','Budi Santoso','','021-5550123','','budi@maju.co.id','','https://maju.co.id','Jl. Gatot Subroto No.10','https://maps.google.com/?q=Jakarta','Raw Materials;Packaging','Steel Sheets;Aluminum Bars','2026-01-15','Long-term partner since 2020'],
+    ['CV Teknik Prima','Siti Rahma','Andi','022-7890456','0812345678','siti@prima.com','andi@prima.com','','Jl. Asia Afrika No.45','','Electronics','PCB Assemblies;Microcontrollers','2026-03-20','ISO certified'],
+    ['UD Berkah Abadi','Ahmad Fauzi','','0341-123456','','ahmad@abadi.com','','','Jl. Ijen No.7','','Stationery;General Part','Paper;Pens;Markers','','Minimum order 100 pcs']
   ];
   var csv=hdrs.map(csvEsc).join(',')+'\n';
   rows.forEach(function(row){
@@ -1451,25 +1498,37 @@ function renderSummaryCharts() {
     }
   });
 
-  // ── 2. Chart by Status ──
-  var activeCount   = suppliers.filter(function(s) { return s.status === 'Active'; }).length;
-  var inactiveCount = suppliers.filter(function(s) { return s.status === 'Inactive'; }).length;
+  // ── 2. Chart by Transaction Year ──
+  var yearCount = {};
+  var currentYear = new Date().getFullYear();
+  suppliers.forEach(function(s) {
+    if (!s.lastTransactionDate) return;
+    var yr = new Date(s.lastTransactionDate).getFullYear();
+    yearCount[yr] = (yearCount[yr] || 0) + 1;
+  });
+  var yearEntries = Object.entries(yearCount).sort(function(a, b) { return a[0] - b[0]; });
+  var yearLabels  = yearEntries.map(function(e) { return e[0].toString(); });
+  var yearData    = yearEntries.map(function(e) { return e[1]; });
 
-  _summaryCharts.status = new Chart($('chartStatus'), {
-    type: 'doughnut',
+  _summaryCharts.year = new Chart($('chartStatus'), {
+    type: 'bar',
     data: {
-      labels: ['Active', 'Inactive'],
+      labels: yearLabels,
       datasets: [{
-        data: [activeCount, inactiveCount],
-        backgroundColor: ['#10b981', '#d1d5db'],
-        borderWidth: 2,
-        borderColor: '#fff'
+        data: yearData,
+        backgroundColor: yearLabels.map(function(yr) { return yr == currentYear ? '#10b981' : '#6366f1'; }),
+        borderRadius: 6,
+        borderSkipped: false
       }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 12 }, color: '#4b5563' } }
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 }, color: '#6b7280' }, grid: { color: '#f3f4f6' } },
+        x: { ticks: { font: { size: 11 }, color: '#6b7280' }, grid: { display: false } }
       }
     }
   });
