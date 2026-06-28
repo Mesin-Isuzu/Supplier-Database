@@ -500,6 +500,7 @@ function openAddModal() {
   $('fAddress').value = '';
   $('fLocation').value = '';
   $('fTransactionDate').value = '';
+  $('fTransactionDate').setAttribute('max', new Date().toISOString().split('T')[0]);
   $('fNotes').value = '';
   $('productsList').innerHTML = '';
   $('addEditModal').classList.remove('hidden');
@@ -522,6 +523,7 @@ function openEditModal(id) {
   $('fAddress').value  = s.address  || '';
   $('fLocation').value = s.location || '';
   $('fTransactionDate').value = s.lastTransactionDate || '';
+  $('fTransactionDate').setAttribute('max', new Date().toISOString().split('T')[0]);
   $('fNotes').value    = s.notes    || '';
   $('productsList').innerHTML = '';
   (s.products||[]).forEach(function(p){ addProductField(p); });
@@ -1498,25 +1500,28 @@ function renderSummaryCharts() {
     }
   });
 
-  // ── 2. Chart by Transaction Year ──
-  var yearCount = {};
-  var currentYear = new Date().getFullYear();
+  // ── 2. Chart by Last Transaction Month-Year ──
+  var monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  var monthYearCount = {};
   suppliers.forEach(function(s) {
     if (!s.lastTransactionDate) return;
-    var yr = new Date(s.lastTransactionDate).getFullYear();
-    yearCount[yr] = (yearCount[yr] || 0) + 1;
+    var d = new Date(s.lastTransactionDate);
+    var key = monthNames[d.getMonth()] + ' ' + d.getFullYear();
+    monthYearCount[key] = (monthYearCount[key] || 0) + 1;
   });
-  var yearEntries = Object.entries(yearCount).sort(function(a, b) { return a[0] - b[0]; });
-  var yearLabels  = yearEntries.map(function(e) { return e[0].toString(); });
-  var yearData    = yearEntries.map(function(e) { return e[1]; });
+  var myEntries = Object.entries(monthYearCount).sort(function(a, b) {
+    return new Date(a[0]) - new Date(b[0]);
+  });
+  var myLabels = myEntries.map(function(e) { return e[0]; });
+  var myData   = myEntries.map(function(e) { return e[1]; });
 
-  _summaryCharts.year = new Chart($('chartStatus'), {
+  _summaryCharts.monthYear = new Chart($('chartStatus'), {
     type: 'bar',
     data: {
-      labels: yearLabels,
+      labels: myLabels,
       datasets: [{
-        data: yearData,
-        backgroundColor: yearLabels.map(function(yr) { return yr == currentYear ? '#10b981' : '#6366f1'; }),
+        data: myData,
+        backgroundColor: '#6366f1',
         borderRadius: 6,
         borderSkipped: false
       }]
@@ -1528,7 +1533,7 @@ function renderSummaryCharts() {
       },
       scales: {
         y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 }, color: '#6b7280' }, grid: { color: '#f3f4f6' } },
-        x: { ticks: { font: { size: 11 }, color: '#6b7280' }, grid: { display: false } }
+        x: { ticks: { font: { size: 10 }, color: '#6b7280', maxRotation: 45 }, grid: { display: false } }
       }
     }
   });
