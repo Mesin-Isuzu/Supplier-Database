@@ -42,7 +42,21 @@ function showToast(m, t, d) {
 }
 function showLoading() { $('loadingOverlay').style.display = 'flex'; }
 function hideLoading() { $('loadingOverlay').style.display = 'none'; }
-function downloadFile(c, f, m) {
+async function downloadFile(c, f, m) {
+  if (window.showSaveFilePicker) {
+    try {
+      var handle = await window.showSaveFilePicker({
+        suggestedName: f,
+        types: [{ description: 'CSV File', accept: { 'text/csv': ['.csv'] } }]
+      });
+      var writable = await handle.createWritable();
+      await writable.write(c);
+      await writable.close();
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
   var b = new Blob([c], { type: m + ';charset=utf-8' }), u = URL.createObjectURL(b), a = document.createElement('a');
   a.href = u; a.download = f; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
 }
@@ -991,7 +1005,7 @@ async function processImportData(headers, rows) {
   showToast('Imported ' + batch.length + ' supplier'+(batch.length>1?'s':'')+(skipped>0?', '+skipped+' skipped':'')+'.','success');
 }
 
-function exportCSV() {
+async function exportCSV() {
   var hdrs=['Company Name','Contact Person 1','Contact Person 2','Phone 1','Phone 2','Email 1','Email 2','Website','Address','Location','Categories','Products','Last Transaction Date','Notes'];
   var rows = suppliers.map(function(s){
     var prodStr=(s.products||[]).map(function(p){return typeof p==='string'?p:p.name;}).join(', ');
@@ -1002,11 +1016,11 @@ function exportCSV() {
             csvEsc((s.categories||[]).join(', ')),csvEsc(prodStr),csvEsc(txnDate),csvEsc(s.notes||'')];
   });
   var csv=hdrs.join(',')+'\n'+rows.map(function(r){return r.join(',');}).join('\n');
-  downloadFile(csv,'suppliers.csv','text/csv');
+  await downloadFile(csv,'suppliers.csv','text/csv');
   showToast('CSV exported!','success');
 }
 
-function downloadTemplate() {
+async function downloadTemplate() {
   var hdrs=['Company Name','Contact Person 1','Contact Person 2','Phone 1','Phone 2','Email 1','Email 2','Website','Address','Location','Categories','Products','Last Transaction Date','Notes'];
   var rows=[
     ['PT Maju Jaya','Budi Santoso','','021-5550123','','budi@maju.co.id','','https://maju.co.id','Jl. Gatot Subroto No.10','https://maps.google.com/?q=Jakarta','Raw Materials;Packaging','Steel Sheets;Aluminum Bars','2026-01-15','Long-term partner since 2020'],
@@ -1017,7 +1031,7 @@ function downloadTemplate() {
   rows.forEach(function(row){
     csv+=row.map(csvEsc).join(',')+'\n';
   });
-  downloadFile(csv,'template-import.csv','text/csv');
+  await downloadFile(csv,'template-import.csv','text/csv');
   showToast('Template downloaded!','success');
 }
 
