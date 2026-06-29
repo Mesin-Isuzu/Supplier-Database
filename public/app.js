@@ -1012,17 +1012,13 @@ async function processImportData(headers, rows) {
 
   if (!batch.length) { showToast('No valid rows found.', 'warning'); return; }
   showLoading();
-  var { data, error } = await supabase.from('suppliers').insert(batch).select('*, creator:users!created_by(username), updater:users!updated_by(username)');
+  var { error } = await supabase.from('suppliers').insert(batch);
   if (error) {
-    var { data: fallbackData, error: fallbackError } = await supabase.from('suppliers').select('*').order('id', { ascending: false }).limit(batch.length);
-    if (fallbackError) {
-      hideLoading();
-      showToast('Import failed: ' + error.message, 'error');
-      return;
-    }
-    data = fallbackData;
+    hideLoading();
+    showToast('Import failed: ' + error.message, 'error');
+    return;
   }
-  (data||[]).forEach(function(r){ suppliers.push(fromSupabase(r)); });
+  await loadSuppliers();
   hideLoading();
   render();
   showToast('Imported ' + batch.length + ' supplier'+(batch.length>1?'s':'')+(skipped>0?', '+skipped+' skipped':'')+'.','success');
