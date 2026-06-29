@@ -912,10 +912,12 @@ function handleImport(input) {
   if (ext === 'csv') {
     var reader = new FileReader();
     reader.onload = function(e) { parseCSV(e.target.result); input.value=''; };
+    reader.onerror = function() { showToast('Failed to read file.', 'error'); };
     reader.readAsText(file);
   } else if (ext==='xls'||ext==='xlsx') {
     var reader = new FileReader();
     reader.onload = function(e) { parseXLSX(new Uint8Array(e.target.result)); input.value=''; };
+    reader.onerror = function() { showToast('Failed to read file.', 'error'); };
     reader.readAsArrayBuffer(file);
   } else {
     showToast('Please select a CSV or Excel file.', 'error'); input.value='';
@@ -949,6 +951,7 @@ function parseXLSX(data) {
 }
 
 async function processImportData(headers, rows) {
+  try {
   var hLower = headers.map(function(h){return h.toString().toLowerCase().trim();});
   var colKeys = {
     companyName:    ['company name','company','perusahaan','nama perusahaan','supplier'],
@@ -1023,6 +1026,10 @@ async function processImportData(headers, rows) {
   hideLoading();
   render();
   showToast('Imported ' + batch.length + ' supplier'+(batch.length>1?'s':'')+(skipped>0?', '+skipped+' skipped':'')+'.','success');
+  } catch (e) {
+    hideLoading();
+    showToast('Import error: ' + (e.message || 'Unknown error'), 'error');
+  }
 }
 
 async function exportCSV() {
