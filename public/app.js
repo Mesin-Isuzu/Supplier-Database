@@ -935,14 +935,12 @@ function parseCSV(text) {
 }
 
 function detectDelimiter(sampleLines) {
-  var candidates = [',', ';', '\t', '|'];
+  var candidates = [{ char: ',', rx: ',' }, { char: ';', rx: ';' }, { char: '\t', rx: '\\t' }, { char: '|', rx: '\\|' }];
+  var text = sampleLines.join('\n');
   var best = { delim: ',', count: 0 };
-  candidates.forEach(function(d) {
-    var count = 0;
-    sampleLines.forEach(function(line) {
-      count += (line.match(new RegExp('\\' + d, 'g')) || []).length;
-    });
-    if (count > best.count) { best = { delim: d, count: count }; }
+  candidates.forEach(function(c) {
+    var count = (text.match(new RegExp(c.rx, 'g')) || []).length;
+    if (count > best.count) { best = { delim: c.char, count: count }; }
   });
   return best.delim;
 }
