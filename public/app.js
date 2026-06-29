@@ -390,8 +390,6 @@ function getFilteredSorted() {
   var q   = ($('searchInput').value || '').toLowerCase();
   var yr  = $('filterYear').value;
   var cat = $('filterCategory').value;
-  var dateFrom = $('filterDateFrom').value;
-  var dateTo   = $('filterDateTo').value;
 
    var list = suppliers.filter(function(s) {
     var matchQ = !q;
@@ -410,15 +408,6 @@ function getFilteredSorted() {
     var matchCt = !cat || (s.categories||[]).includes(cat);
     return matchQ && matchYr && matchCt;
   });
-
-  if (dateFrom || dateTo) {
-    list = list.filter(function(s) {
-      if (!s.lastTransactionDate) return false;
-      if (dateFrom && s.lastTransactionDate < dateFrom) return false;
-      if (dateTo   && s.lastTransactionDate > dateTo)   return false;
-      return true;
-    });
-  }
 
   if (sortColumn) {
     var fieldMap = { 'last_transaction_date': 'lastTransactionDate', 'company_name': 'companyName', 'contact_person': 'contactPerson', 'phone': 'phone' };
