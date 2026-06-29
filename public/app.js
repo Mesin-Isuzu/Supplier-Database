@@ -925,20 +925,35 @@ function handleImport(input) {
 }
 
 function parseCSV(text) {
-  var lines = text.split('\n');
+  var lines = text.split('\n').filter(function(l) { return l.trim(); });
   if (lines.length < 2) { showToast('CSV file is empty or has no data rows.', 'error'); return; }
-  var headers = parseCSVRow(lines[0]);
+  var delim = detectDelimiter(lines.slice(0, 5));
+  var headers = parseCSVRow(lines[0], delim);
   var rows = [];
-  for (var i = 1; i < lines.length; i++) { var line=lines[i].trim(); if(line) rows.push(parseCSVRow(line)); }
+  for (var i = 1; i < lines.length; i++) { var line=lines[i].trim(); if(line) rows.push(parseCSVRow(line, delim)); }
   processImportData(headers, rows);
 }
 
-function parseCSVRow(row) {
+function detectDelimiter(sampleLines) {
+  var candidates = [',', ';', '\t', '|'];
+  var best = { delim: ',', count: 0 };
+  candidates.forEach(function(d) {
+    var count = 0;
+    sampleLines.forEach(function(line) {
+      count += (line.match(new RegExp('\\' + d, 'g')) || []).length;
+    });
+    if (count > best.count) { best = { delim: d, count: count }; }
+  });
+  return best.delim;
+}
+
+function parseCSVRow(row, delim) {
   var result=[], current='', inQuotes=false;
+  delim = delim || ',';
   for (var i=0; i<row.length; i++) {
     var c=row[i];
     if (inQuotes) { if(c==='"'){if(i+1<row.length&&row[i+1]==='"'){current+='"';i++;}else{inQuotes=false;}}else{current+=c;} }
-    else { if(c==='"'){inQuotes=true;}else if(c===','){result.push(current.trim());current='';}else{current+=c;} }
+    else { if(c==='"'){inQuotes=true;}else if(c===delim){result.push(current.trim());current='';}else{current+=c;} }
   }
   result.push(current.trim()); return result;
 }
