@@ -61,6 +61,34 @@
 
   <script>document.getElementById('loginPage').classList.remove('hidden');document.getElementById('loginPage').classList.add('active');document.getElementById('loadingOverlay').style.display='none';</script>
 
+  <!-- Admin Landing Page -->
+  <div id="adminLandingPage" class="landing-page hidden fixed inset-0 z-50 items-center justify-center">
+    <div class="landing-content w-full max-w-2xl px-4">
+      <div class="text-center mb-8">
+        <img src="logo.png" alt="Isuzu Logo" class="landing-logo h-12 mx-auto mb-3" style="filter: invert(16%) sepia(100%) saturate(7414%) hue-rotate(355deg) brightness(94%) contrast(108%);">
+        <h1 class="text-xl font-bold text-gray-900" style="font-family: 'Usuzi', sans-serif;">mesin isuzu indonesia</h1>
+        <p class="text-sm text-gray-500 mt-1">Welcome, <span id="landingUsername" class="font-semibold text-gray-700"></span></p>
+      </div>
+      <div class="landing-grid grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="landing-card" onclick="goToMainPage()">
+          <div class="landing-card-icon"><i class="fas fa-building"></i></div>
+          <h2 class="landing-card-title">Supplier Database</h2>
+          <p class="landing-card-desc">Kelola data supplier, produk, kategori, import/export data.</p>
+          <button class="landing-card-btn">Buka</button>
+        </div>
+        <div class="landing-card" onclick="openMasterSupplierFromLanding()">
+          <div class="landing-card-icon"><i class="fas fa-list-ul"></i></div>
+          <h2 class="landing-card-title">Master Supplier</h2>
+          <p class="landing-card-desc">Kelola referensi ID dan Nama Supplier yang digunakan di database.</p>
+          <button class="landing-card-btn">Buka</button>
+        </div>
+      </div>
+      <div class="text-center mt-6">
+        <button onclick="handleLogout()" class="text-sm text-gray-400 hover:text-gray-600 transition"><i class="fas fa-sign-out-alt mr-1"></i>Logout</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Main App -->
   <div id="appContent" class="app-content">
     <nav class="site-header sticky top-0 z-40">
@@ -74,6 +102,7 @@
             <span id="navUsername" class="header-user-name hidden"></span>
             <span id="navRole" class="header-role-badge hidden"></span>
             <button onclick="toggleTheme()" class="header-logout flex items-center gap-1 mr-2" title="Toggle theme"><i class="fas fa-moon" id="themeToggleIcon"></i></button>
+            <button onclick="showAdminLanding()" id="navMenuBtn" class="header-logout flex items-center gap-1 mr-2 hidden" title="Menu"><i class="fas fa-th-large"></i></button>
             <button onclick="handleLogout()" class="header-logout flex items-center gap-1" id="logoutBtn"><i class="fas fa-sign-out-alt"></i>Logout</button>
           </div>
         </div>
@@ -125,6 +154,7 @@
             <button onclick="openSummaryModal()" class="toolbar-icon-btn" title="Charts &amp; Summary"><i class="fas fa-chart-pie"></i><span class="hidden sm:inline">Summary</span></button>
             <button onclick="openManageCategories()" id="manageCategoriesBtn" class="toolbar-icon-btn hidden" title="Manage Categories"><i class="fas fa-tags"></i><span class="hidden sm:inline">Categories</span></button>
             <button onclick="openManageUsers()" id="manageUsersBtn" class="toolbar-icon-btn hidden" title="Manage Users"><i class="fas fa-users-cog"></i><span class="hidden sm:inline">Users</span></button>
+            <button onclick="openMasterSupplierModal()" id="masterSupplierBtn" class="toolbar-icon-btn hidden" title="Master Supplier List"><i class="fas fa-list-ul"></i><span class="hidden sm:inline">Master Supplier</span></button>
             <span class="toolbar-divider hidden" id="addSupplierDivider"></span>
             <button onclick="openAddModal()" id="addSupplierBtn" class="toolbar-icon-btn toolbar-icon-btn--accent hidden"><i class="fas fa-plus"></i><span class="hidden sm:inline">Add Supplier</span></button>
           </div>
@@ -137,6 +167,7 @@
           <table class="data-table" id="mainTable">
             <thead>
               <tr>
+                <th class="sortable" onclick="sortBy('id_supplier')">ID <i class="fas fa-sort sort-icon" id="sort-id_supplier"></i></th>
                 <th class="sortable" onclick="sortBy('company_name')">Company <i class="fas fa-sort sort-icon" id="sort-company_name"></i></th>
                 <th class="sortable" onclick="sortBy('contact_person')">Contact <i class="fas fa-sort sort-icon" id="sort-contact_person"></i></th>
                 <th class="hidden md:table-cell sortable" onclick="sortBy('phone')">Phone <i class="fas fa-sort sort-icon" id="sort-phone"></i></th>
@@ -172,7 +203,7 @@
       <div class="modal-body space-y-4">
         <input type="hidden" id="editId">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div><label class="form-label">Company Name <span class="required">*</span></label><input type="text" id="fCompanyName" class="form-input"></div>
+          <div><label class="form-label">Company Name <span class="required">*</span></label><input type="text" id="fCompanyName" class="form-input" list="masterSupplierList" autocomplete="off" placeholder="Pilih atau ketik nama supplier" oninput="onSupplierNameInput()"><datalist id="masterSupplierList"></datalist><input type="hidden" id="fIdSupplier"><span id="fIdSupplierDisplay" class="text-xs text-indigo-600 font-mono block mt-1 hidden"></span></div>
           <div><label class="form-label">Contact Person 1 <span class="required">*</span></label><input type="text" id="fContactPerson" class="form-input"></div>
           <div><label class="form-label">Phone 1 <span class="required">*</span></label><input type="text" id="fPhone" class="form-input"></div>
           <div><label class="form-label">Email 1</label><input type="email" id="fEmail" class="form-input"></div>
@@ -354,6 +385,52 @@
             </tr></thead>
             <tbody id="auditTableBody"><tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Master Supplier Modal -->
+  <div id="masterSupplierModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="modal-content w-full max-w-2xl">
+      <div class="modal-header">
+        <div>
+          <h2>Master Supplier</h2>
+          <p class="text-xs text-gray-400 mt-0.5">Manage the reference list of Supplier ID &amp; Names.</p>
+        </div>
+        <button onclick="closeMasterSupplierModal()" class="modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="flex items-center gap-2 mb-4 flex-wrap">
+          <input type="file" id="msImportFile" accept=".csv" style="display:none" onchange="handleMasterImport(this)">
+          <button onclick="document.getElementById('msImportFile').click()" class="btn btn-sm bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 text-xs font-medium transition" title="Import CSV"><i class="fas fa-file-import mr-1"></i>Import CSV</button>
+          <button onclick="downloadMasterTemplate()" class="btn btn-sm bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium transition" title="Download Template"><i class="fas fa-download mr-1"></i>Template</button>
+          <button onclick="exportMasterCSV()" class="btn btn-sm bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium transition" title="Export CSV"><i class="fas fa-file-csv mr-1"></i>Export</button>
+        </div>
+        <div class="overflow-x-auto mb-4">
+          <table class="w-full text-sm">
+            <thead><tr class="bg-gray-50 border-b border-gray-200">
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">ID Supplier</th>
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">Nama Supplier</th>
+              <th class="text-center px-3 py-2 font-semibold text-gray-600">Actions</th>
+            </tr></thead>
+            <tbody id="msTableBody"><tr><td colspan="3" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="pagination-bar" id="msPaginationBar" style="display:none">
+          <span class="pagination-info" id="msPaginationInfo">Showing 0 of 0</span>
+          <div class="flex gap-1" id="msPaginationButtons"></div>
+        </div>
+        <div class="border-t border-gray-200 pt-4 mt-2">
+          <h3 class="text-sm font-semibold mb-3" id="msFormTitle">Add Master Supplier</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <input type="text" id="msIdSupplier" class="form-input" placeholder="ID Supplier (7 digit)" maxlength="7" pattern="\d{7}">
+            <input type="text" id="msNamaSupplier" class="form-input" placeholder="Nama Supplier">
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="addMasterSupplier()" id="msAddBtn" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-1"></i>Add</button>
+            <button onclick="cancelEditMasterSupplier()" id="msCancelEditBtn" class="btn btn-ghost btn-sm hidden"><i class="fas fa-times mr-1"></i>Cancel Edit</button>
+          </div>
         </div>
       </div>
     </div>

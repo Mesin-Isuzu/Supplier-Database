@@ -103,6 +103,22 @@ CREATE TRIGGER suppliers_updated_at
   BEFORE UPDATE ON public.suppliers
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+-- Migrasi: tambahkan kolom id_supplier (jika belum ada)
+ALTER TABLE public.suppliers ADD COLUMN IF NOT EXISTS id_supplier TEXT;
+
+
+-- ============================================================
+-- 4.5. TABEL: public.master_suppliers (Referensi Supplier)
+--       id_supplier = 7-digit code (contoh: "1000187")
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.master_suppliers (
+  id_supplier   TEXT PRIMARY KEY,
+  nama_supplier TEXT NOT NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_master_suppliers_nama ON public.master_suppliers (nama_supplier);
+
 
 -- ============================================================
 -- 5. TABEL: public.supplier_logs (Audit / Change Log)
@@ -187,18 +203,20 @@ CREATE INDEX IF NOT EXISTS idx_supplier_logs_changed_at  ON public.supplier_logs
 ALTER TABLE public.users          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.suppliers      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.master_suppliers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.supplier_logs  ENABLE ROW LEVEL SECURITY;
 
 -- ── public.users policies ──────────────────────────────────
 
 -- Drop existing policies to avoid conflicts
-DROP POLICY IF EXISTS "users_select_own"      ON public.users;
-DROP POLICY IF EXISTS "users_select_admin"    ON public.users;
-DROP POLICY IF EXISTS "users_all_admin"       ON public.users;
-DROP POLICY IF EXISTS "users_insert_own"      ON public.users;
-DROP POLICY IF EXISTS "users_insert_trigger"  ON public.users;
-DROP POLICY IF EXISTS "users_update_admin"    ON public.users;
-DROP POLICY IF EXISTS "users_delete_admin"    ON public.users;
+DROP POLICY IF EXISTS "users_select_own"             ON public.users;
+DROP POLICY IF EXISTS "users_select_admin"           ON public.users;
+DROP POLICY IF EXISTS "users_select_authenticated"   ON public.users;
+DROP POLICY IF EXISTS "users_all_admin"              ON public.users;
+DROP POLICY IF EXISTS "users_insert_own"             ON public.users;
+DROP POLICY IF EXISTS "users_insert_trigger"         ON public.users;
+DROP POLICY IF EXISTS "users_update_admin"           ON public.users;
+DROP POLICY IF EXISTS "users_delete_admin"           ON public.users;
 
 -- Setiap user yang login bisa baca profil sendiri
 CREATE POLICY "users_select_own" ON public.users
@@ -263,6 +281,26 @@ CREATE POLICY "suppliers_update_editor" ON public.suppliers
   FOR UPDATE USING (public.is_editor_or_admin(auth.uid()));
 
 CREATE POLICY "suppliers_delete_admin" ON public.suppliers
+  FOR DELETE USING (public.is_admin(auth.uid()));
+
+
+-- ── public.master_suppliers policies ────────────────────────
+
+DROP POLICY IF EXISTS "ms_select_authenticated" ON public.master_suppliers;
+DROP POLICY IF EXISTS "ms_insert_editor"      ON public.master_suppliers;
+DROP POLICY IF EXISTS "ms_update_editor"      ON public.master_suppliers;
+DROP POLICY IF EXISTS "ms_delete_admin"       ON public.master_suppliers;
+
+CREATE POLICY "ms_select_authenticated" ON public.master_suppliers
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "ms_insert_editor" ON public.master_suppliers
+  FOR INSERT WITH CHECK (public.is_editor_or_admin(auth.uid()));
+
+CREATE POLICY "ms_update_editor" ON public.master_suppliers
+  FOR UPDATE USING (public.is_editor_or_admin(auth.uid()));
+
+CREATE POLICY "ms_delete_admin" ON public.master_suppliers
   FOR DELETE USING (public.is_admin(auth.uid()));
 
 
@@ -782,6 +820,15 @@ BEGIN;
         AND tablename = 'categories'
     ) THEN
       ALTER PUBLICATION supabase_realtime ADD TABLE public.categories;
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'master_suppliers'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.master_suppliers;
     END IF;
   END $$;
 COMMIT;
