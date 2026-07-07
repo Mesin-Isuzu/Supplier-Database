@@ -2044,7 +2044,7 @@ async function processMasterImport(headers, rows, input) {
   var hLower = headers.map(function(h){ return h.toString().toLowerCase().trim(); });
 
   var idColKeys = ['id_supplier','id supplier','kode supplier','kode','id','code','kode_supplier','supplier id'];
-  var namaColKeys = ['nama_supplier','nama supplier','nama','supplier','name','company','perusahaan','supplier name'];
+  var namaColKeys = ['nama_supplier','nama supplier','nama','supplier name','company','perusahaan'];
 
   var idIdx = -1, namaIdx = -1;
   for (var i = 0; i < hLower.length; i++) {
@@ -2053,7 +2053,7 @@ async function processMasterImport(headers, rows, input) {
         if (hLower[i].indexOf(idColKeys[j]) !== -1) { idIdx = i; break; }
       }
     }
-    if (namaIdx === -1) {
+    if (namaIdx === -1 && i !== idIdx) {
       for (var k = 0; k < namaColKeys.length; k++) {
         if (hLower[i].indexOf(namaColKeys[k]) !== -1) { namaIdx = i; break; }
       }
