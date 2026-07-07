@@ -280,6 +280,7 @@ async function onLoginSuccess() {
   $('loginPage').classList.remove('active');
 
   if (currentUser && currentUser.role === 'Admin') {
+    applyPermissions();
     showAdminLanding();
   } else {
     $('appContent').classList.add('active');
