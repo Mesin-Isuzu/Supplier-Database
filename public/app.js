@@ -1232,6 +1232,16 @@ async function processImportData(headers, rows) {
   }
   if (map.companyName===undefined) { showToast('Could not find "Company Name" column.','error'); return; }
 
+  if (map.idSupplier!==undefined && map.idSupplier===map.companyName) {
+    var hdr = hLower[map.idSupplier];
+    var isId = /(^|[^a-z])(id|kode|code|no|nomor)([^a-z]|$)/.test(hdr);
+    var isName = /(name|nama|company|perusahaan|supplier)/.test(hdr) && !isId;
+    if (isId && !isName) { map.companyName = undefined; }
+    else if (isName && !isId) { map.idSupplier = undefined; }
+    else { map.companyName = undefined; }
+    if (map.companyName===undefined) { showToast('Could not find "Company Name" column.','error'); return; }
+  }
+
   var batch=[], skipped=0;
   rows.forEach(function(row) {
     if(typeof row==='string') row=[row];
