@@ -521,6 +521,24 @@ body {
   box-shadow: 0 0 0 3px rgba(10,61,98,0.12);
 }
 
+.form-input.input-error {
+  border-color: #ef4444;
+}
+.form-input.input-error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.15);
+}
+
+.field-error {
+  color: #ef4444;
+  font-size: 0.75rem;
+  margin-top: 4px;
+  display: none;
+}
+.field-error.visible {
+  display: block;
+}
+
 .form-select {
   width: 100%;
   border: 1px solid var(--color-border);

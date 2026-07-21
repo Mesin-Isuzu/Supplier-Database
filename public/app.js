@@ -278,6 +278,7 @@ async function loadUserProfile(userId) {
 async function onLoginSuccess() {
   $('loginPage').classList.add('hidden');
   $('loginPage').classList.remove('active');
+  bindPhoneValidation();
 
   if (currentUser && currentUser.role === 'Admin') {
     applyPermissions();
@@ -597,6 +598,7 @@ function openAddModal() {
   $('fTransactionDate').setAttribute('max', new Date().toISOString().split('T')[0]);
   $('fNotes').value = '';
   $('productsList').innerHTML = '';
+  clearPhoneErrors();
   populateMasterSupplierDatalist();
   $('addEditModal').classList.remove('hidden');
   $('addEditModal').classList.add('flex');
@@ -630,6 +632,7 @@ function openEditModal(id) {
   $('fNotes').value    = s.notes    || '';
   $('productsList').innerHTML = '';
   (s.products||[]).forEach(function(p){ addProductField(p); });
+  clearPhoneErrors();
   populateMasterSupplierDatalist();
   $('addEditModal').classList.remove('hidden');
   $('addEditModal').classList.add('flex');
@@ -652,6 +655,105 @@ function onSupplierNameInput() {
     $('fIdSupplierDisplay').textContent = '';
     $('fIdSupplierDisplay').classList.add('hidden');
   }
+}
+
+function validatePhone(val) {
+  if (!val || !val.trim()) return { valid: false, message: 'Nomor telepon wajib diisi.' };
+  var digits = val.replace(/[\s\-\(\)\+]/g, '');
+  if (!/^\d{8,15}$/.test(digits)) return { valid: false, message: 'Nomor telepon harus 8-15 digit (boleh pakai spasi, -, +).' };
+  return { valid: true };
+}
+
+function formatPhoneNumber(raw) {
+  var hasPlus = raw.trim().charAt(0) === '+';
+  var digits = raw.replace(/\D/g, '');
+  if (digits.length === 0) return '';
+  var formatted = '';
+  if (hasPlus) {
+    formatted = '+' + digits.substring(0, 2);
+    var rest = digits.substring(2);
+    if (rest.length > 0) formatted += '-' + rest.substring(0, 3);
+    if (rest.length > 3) formatted += '-' + rest.substring(3, 7);
+    if (rest.length > 7) formatted += '-' + rest.substring(7);
+  } else {
+    formatted = digits.substring(0, 3);
+    if (digits.length > 3) formatted += '-' + digits.substring(3, 7);
+    if (digits.length > 7) formatted += '-' + digits.substring(7);
+  }
+  return formatted;
+}
+
+function handlePhoneInput(e) {
+  var input = e.target;
+  if (input._formatting) return;
+  var oldVal = input.value;
+  var cursor = input.selectionStart;
+
+  var digitPos = 0;
+  for (var i = 0; i < cursor && i < oldVal.length; i++) {
+    if (/\d/.test(oldVal[i])) digitPos++;
+  }
+  if (cursor > 0 && oldVal.charAt(0) === '+') digitPos = Math.max(0, digitPos);
+
+  var hasPlus = oldVal.trim().charAt(0) === '+';
+  var digits = oldVal.replace(/\D/g, '');
+  if (digits.length === 0) {
+    input._formatting = true;
+    input.value = '';
+    input._formatting = false;
+    showPhoneError(input);
+    return;
+  }
+
+  if (digits.length > 15) digits = digits.substring(0, 15);
+
+  var rebuild = hasPlus ? '+' + digits : digits;
+  var formatted = formatPhoneNumber(rebuild);
+
+  var digitCnt = 0;
+  var newCursor = formatted.length;
+  for (var i = 0; i < formatted.length; i++) {
+    if (/\d/.test(formatted[i])) digitCnt++;
+    if (digitCnt > digitPos) { newCursor = i; break; }
+  }
+
+  input._formatting = true;
+  input.value = formatted;
+  input._formatting = false;
+  input.setSelectionRange(newCursor, newCursor);
+
+  showPhoneError(input);
+}
+
+function showPhoneError(input) {
+  var val = input.value;
+  var validation = validatePhone(val);
+  var errEl = $((input.id === 'fPhone' ? 'fPhoneError' : 'fPhone2Error'));
+  if (!validation.valid) {
+    input.classList.add('input-error');
+    errEl.textContent = validation.message;
+    errEl.classList.add('visible');
+  } else {
+    input.classList.remove('input-error');
+    errEl.textContent = '';
+    errEl.classList.remove('visible');
+  }
+}
+
+function clearPhoneErrors() {
+  ['fPhone', 'fPhone2'].forEach(function(id) {
+    var el = $(id);
+    if (el) el.classList.remove('input-error');
+    var errEl = $(id + 'Error');
+    if (errEl) { errEl.textContent = ''; errEl.classList.remove('visible'); }
+  });
+}
+
+function bindPhoneValidation() {
+  var p1 = $('fPhone');
+  var p2 = $('fPhone2');
+  if (p1) p1.addEventListener('input', handlePhoneInput);
+  if (p2) p2.addEventListener('input', handlePhoneInput);
 }
 
 async function saveSupplier() {
@@ -679,6 +781,23 @@ async function saveSupplier() {
   if (email2 && !emailRe.test(email2)) {
     showToast('Email 2 format tidak valid.', 'error');
     return;
+  }
+
+  var phoneVal = validatePhone(phone);
+  if (!phoneVal.valid) {
+    showToast('Phone 1: ' + phoneVal.message, 'error');
+    $('fPhone').classList.add('input-error');
+    return;
+  }
+
+  var phone2 = $('fPhone2').value.trim();
+  if (phone2) {
+    var phone2Val = validatePhone(phone2);
+    if (!phone2Val.valid) {
+      showToast('Phone 2: ' + phone2Val.message, 'error');
+      $('fPhone2').classList.add('input-error');
+      return;
+    }
   }
 
   var txnDate = $('fTransactionDate').value || null;
@@ -1048,27 +1167,38 @@ async function processImportData(headers, rows) {
   try {
   var hLower = headers.map(function(h){return h.toString().toLowerCase().trim();});
   var colKeys = {
-    idSupplier:     ['id_supplier','id supplier','supplier id','kode supplier','id-sup'],
+    idSupplier:     ['id_supplier','id-supplier','id supplier','supplier id','kode supplier','id-sup'],
     companyName:    ['company name','company','perusahaan','nama perusahaan','supplier'],
-    contactPerson:  ['contact person','contact','pic','kontak','nama kontak','contact person 1'],
+    contactPerson:  ['contact person 1','contact person','contact','pic','kontak','nama kontak'],
     contactPerson2: ['contact person 2','contact 2','pic 2','kontak 2'],
-    phone:          ['phone','telephone','telp','telepon','no telp','hp','no hp','phone 1'],
+    phone:          ['phone 1','phone','telephone','telp','telepon','no telp','hp','no hp'],
     phone2:         ['phone 2','telp 2','hp 2','no hp 2'],
-    email:          ['email','e-mail','email 1'],
+    email:          ['email 1','email','e-mail'],
     email2:         ['email 2','e-mail 2'],
     website:        ['website','web','site'],
     address:        ['address','alamat'],
-    location:       ['location','maps','google maps','lokasi','map'],
+    location:       ['location','google maps','maps','lokasi','map'],
     categories:     ['categories','category','kategori','cat'],
     products:       ['products','product','produk','barang'],
-    lastTransactionDate: ['last transaction','last transaction date','transaction date','tanggal transaksi','tgl transaksi'],
+    lastTransactionDate: ['last transaction date','last transaction','transaction date','tanggal transaksi','tgl transaksi'],
     notes:          ['notes','note','keterangan','remark']
   };
-  var map={};
+  var map={}, used={};
   for (var key in colKeys) {
     for (var i=0; i<hLower.length; i++) {
+      if (used[i]) continue;
       for (var j=0; j<colKeys[key].length; j++) {
-        if (hLower[i].indexOf(colKeys[key][j]) !== -1) { map[key]=i; break; }
+        if (hLower[i] === colKeys[key][j]) { map[key]=i; used[i]=true; break; }
+      }
+      if (map[key]!==undefined) break;
+    }
+  }
+  for (var key in colKeys) {
+    if (map[key]!==undefined) continue;
+    for (var i=0; i<hLower.length; i++) {
+      if (used[i]) continue;
+      for (var j=0; j<colKeys[key].length; j++) {
+        if (hLower[i].indexOf(colKeys[key][j]) !== -1) { map[key]=i; used[i]=true; break; }
       }
       if (map[key]!==undefined) break;
     }
