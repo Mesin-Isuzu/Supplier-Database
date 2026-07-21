@@ -868,11 +868,8 @@ async function saveSupplier() {
       .single();
     error = res.error;
     if (error) {
-      await loadSuppliers();
       hideLoading();
-      closeModal();
-      render();
-      showToast('Supplier added.', 'success');
+      showToast('Error saving supplier: ' + error.message, 'error');
       return;
     }
     if (!error) suppliers.push(fromSupabase(res.data));
