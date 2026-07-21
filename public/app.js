@@ -106,10 +106,9 @@ function fromSupabase(r) {
   return {
     id:              r.id,
     idSupplier:      r.id_supplier   || '',
-    companyName:     r.company_name,
-    contactPerson:   r.contact_person,
-    contactPerson2:  r.contact_person_2 || '',
-    phone:           r.phone,
+    companyName:     r.company_name   || '',
+    contactPerson:   r.contact_person || '',
+    phone:           r.phone          || '',
     phone2:          r.phone_2 || '',
     email:           r.email         || '',
     email2:          r.email_2       || '',
@@ -1163,13 +1162,38 @@ function parseXLSX(data) {
   processImportData(json[0], json.slice(1).filter(function(r){return r.join('').trim();}));
 }
 
+function normalizeDate(raw) {
+  if (!raw) return null;
+  var s = raw.toString().trim();
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  var months = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+  var m = s.match(/^(\d{1,2})[-\/ ](jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-\/ ](\d{2,4})$/i);
+  if (m) {
+    var d = m[1].padStart(2,'0');
+    var mo = months[m[2].toLowerCase()];
+    var y = m[3].length === 2 ? '20' + m[3] : m[3];
+    return y + '-' + mo + '-' + d;
+  }
+  m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/);
+  if (m) {
+    var d1 = parseInt(m[1]), d2 = parseInt(m[2]);
+    var d, mo;
+    if (d1 > 12) { d = m[1].padStart(2,'0'); mo = m[2].padStart(2,'0'); }
+    else { mo = m[1].padStart(2,'0'); d = m[2].padStart(2,'0'); }
+    var y = m[3].length === 2 ? '20' + m[3] : m[3];
+    return y + '-' + mo + '-' + d;
+  }
+  return null;
+}
+
 async function processImportData(headers, rows) {
   try {
   var hLower = headers.map(function(h){return h.toString().toLowerCase().trim();});
   var colKeys = {
-    idSupplier:     ['id_supplier','id-supplier','id supplier','supplier id','kode supplier','id-sup'],
-    companyName:    ['company name','company','perusahaan','nama perusahaan','supplier'],
-    contactPerson:  ['contact person 1','contact person','contact','pic','kontak','nama kontak'],
+    idSupplier:     ['id_supplier','id-supplier','id supplier','supplier id','supplier code','kode supplier','vendor code','code','kode','id-sup'],
+    companyName:    ['company name','supplier name','nama supplier','nama perusahaan','supplier','name','nama','company','perusahaan'],
+    contactPerson:  ['contact person 1','contact person','nama kontak','contact','pic','kontak'],
     contactPerson2: ['contact person 2','contact 2','pic 2','kontak 2'],
     phone:          ['phone 1','phone','telephone','telp','telepon','no telp','hp','no hp'],
     phone2:         ['phone 2','telp 2','hp 2','no hp 2'],
@@ -1183,6 +1207,7 @@ async function processImportData(headers, rows) {
     lastTransactionDate: ['last transaction date','last transaction','transaction date','tanggal transaksi','tgl transaksi'],
     notes:          ['notes','note','keterangan','remark']
   };
+  var subSkip = {cat:1,hp:1,web:1,map:1,pic:1,site:1,company:1,code:1,kode:1,name:1,nama:1,contact:1,kontak:1};
   var map={}, used={};
   for (var key in colKeys) {
     for (var i=0; i<hLower.length; i++) {
@@ -1198,7 +1223,9 @@ async function processImportData(headers, rows) {
     for (var i=0; i<hLower.length; i++) {
       if (used[i]) continue;
       for (var j=0; j<colKeys[key].length; j++) {
-        if (hLower[i].indexOf(colKeys[key][j]) !== -1) { map[key]=i; used[i]=true; break; }
+        var a = colKeys[key][j];
+        if (subSkip[a]) continue;
+        if (hLower[i].indexOf(a) !== -1) { map[key]=i; used[i]=true; break; }
       }
       if (map[key]!==undefined) break;
     }
@@ -1221,7 +1248,7 @@ async function processImportData(headers, rows) {
     var defCat=categories[0];
     var products=[];
     if(map.products!==undefined){var pRaw=(row[map.products]||'').toString().trim();if(pRaw)pRaw.split(/[,;]/).forEach(function(n){n=n.trim();if(n)products.push({name:n,image:'',category:defCat});});}
-    var txnDate = (map.lastTransactionDate!==undefined?row[map.lastTransactionDate]:'').toString().trim() || null;
+    var txnDate = normalizeDate(map.lastTransactionDate!==undefined?row[map.lastTransactionDate]:'');
     batch.push({
       id_supplier:      (map.idSupplier!==undefined?row[map.idSupplier]:'').toString().trim(),
       company_name:     cn, contact_person: cp, contact_person_2: cp2,
