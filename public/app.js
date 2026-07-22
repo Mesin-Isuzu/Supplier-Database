@@ -103,6 +103,10 @@ function toSupabase(s) {
   };
 }
 function fromSupabase(r) {
+  if (!fromSupabase._loggedFirst) {
+    fromSupabase._loggedFirst = true;
+    console.log('[fromSupabase] Sample DB raw — last_transaction_date:', JSON.stringify(r.last_transaction_date), '| company_name:', r.company_name);
+  }
   return {
     id:              r.id,
     idSupplier:      r.id_supplier   || '',
@@ -521,6 +525,8 @@ function render() {
 
     var txnDate = s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'2-digit'}) : '—';
     var txnCls = s.lastTransactionDate ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500';
+
+    if (page.indexOf(s) < 2) console.log('[Render]', s.companyName, 'lastTransactionDate:', JSON.stringify(s.lastTransactionDate), '→ displayed:', txnDate);
 
     var actions = '<button onclick="openDetailModal('+s.id+')" title="View" class="text-indigo-600 hover:text-indigo-800 mx-1"><i class="fas fa-eye"></i></button>';
     if (window.__canEdit)   actions += '<button onclick="openEditModal('+s.id+')" title="Edit" class="text-yellow-500 hover:text-yellow-700 mx-1"><i class="fas fa-edit"></i></button>';
@@ -1161,27 +1167,33 @@ function parseXLSX(data) {
 }
 
 function normalizeDate(raw) {
-  if (!raw) return null;
+  console.log('[normalizeDate] input:', JSON.stringify(raw));
+  if (!raw) { console.log('[normalizeDate] → null (falsy input)'); return null; }
   var s = raw.toString().trim();
-  if (!s) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (!s) { console.log('[normalizeDate] → null (empty string)'); return null; }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { console.log('[normalizeDate] →', s, '(ISO)'); return s; }
   var months = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
   var m = s.match(/^(\d{1,2})[-\/ ](jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-\/ ](\d{2,4})$/i);
   if (m) {
     var d = m[1].padStart(2,'0');
     var mo = months[m[2].toLowerCase()];
     var y = m[3].length === 2 ? '20' + m[3] : m[3];
-    return y + '-' + mo + '-' + d;
+    var result = y + '-' + mo + '-' + d;
+    console.log('[normalizeDate] →', result, '(Mon-YY format)');
+    return result;
   }
   m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/);
   if (m) {
     var d1 = parseInt(m[1]), d2 = parseInt(m[2]);
-    var d, mo;
-    if (d1 > 12) { d = m[1].padStart(2,'0'); mo = m[2].padStart(2,'0'); }
-    else { mo = m[1].padStart(2,'0'); d = m[2].padStart(2,'0'); }
-    var y = m[3].length === 2 ? '20' + m[3] : m[3];
-    return y + '-' + mo + '-' + d;
+    var dd, mo;
+    if (d1 > 12) { dd = m[1].padStart(2,'0'); mo = m[2].padStart(2,'0'); }
+    else { mo = m[1].padStart(2,'0'); dd = m[2].padStart(2,'0'); }
+    var yy = m[3].length === 2 ? '20' + m[3] : m[3];
+    var result = yy + '-' + mo + '-' + dd;
+    console.log('[normalizeDate] →', result, '(numeric format)');
+    return result;
   }
+  console.log('[normalizeDate] → null (unrecognized format)');
   return null;
 }
 
@@ -1272,6 +1284,7 @@ async function processImportData(headers, rows) {
   });
 
   if (!batch.length) { showToast('No valid rows found.', 'warning'); return; }
+  console.log('[Import] Batch dates:', batch.map(function(b){return b.company_name+': '+b.last_transaction_date;}));
   showLoading();
   var { error } = await supabase.from('suppliers').insert(batch);
   if (error) {
