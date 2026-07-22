@@ -526,7 +526,7 @@ function render() {
     if (window.__canDelete) actions += '<button onclick="openDeleteModal('+s.id+')" title="Delete" class="text-red-500 hover:text-red-700 mx-1"><i class="fas fa-trash"></i></button>';
 
     return '<tr class="table-row-hover border-b border-gray-100">' +
-      '<td class="px-4 py-3 font-mono text-xs text-indigo-600" data-label="ID">'+(s.idSupplier ? escHtml(s.idSupplier) : '\u2014')+'</td>' +
+      '<td class="px-4 py-3 font-mono text-sm text-indigo-600" data-label="ID">'+(s.idSupplier ? escHtml(s.idSupplier) : '\u2014')+'</td>' +
       '<td class="px-4 py-3 font-medium" data-label="Company">'+escHtml(s.companyName)+'</td>' +
       '<td class="px-4 py-3 text-gray-600" data-label="Contact">'+escHtml(s.contactPerson)+(s.contactPerson2?'<br>'+escHtml(s.contactPerson2):'')+'</td>' +
       '<td class="px-4 py-3 text-gray-600 hidden md:table-cell" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br>'+escHtml(s.phone2):'')+'</td>' +
@@ -975,7 +975,7 @@ function openDetailModal(id) {
 
   var h = '<div class="p-6 border-b border-gray-200 flex items-center justify-between">' +
     '<div><h2 class="text-lg font-bold">'+escHtml(s.companyName)+'</h2>' +
-    (s.idSupplier ? '<span class="text-xs text-indigo-600 font-mono">ID: '+escHtml(s.idSupplier)+'</span>' : '') + '</div>' +
+    (s.idSupplier ? '<span class="text-sm text-indigo-600 font-mono">ID: '+escHtml(s.idSupplier)+'</span>' : '') + '</div>' +
     '<button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 text-xl"><i class="fas fa-times"></i></button>' +
     '</div><div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">' +
     '<div class="space-y-3">' +
