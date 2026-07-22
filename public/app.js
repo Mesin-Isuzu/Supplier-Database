@@ -103,6 +103,9 @@ function toSupabase(s) {
   };
 }
 function fromSupabase(r) {
+  if (r.contact_person_2 || r.phone_2 || r.email_2) {
+    console.log('[DB] fromSupabase found data — contact_person_2:', JSON.stringify(r.contact_person_2), 'phone_2:', JSON.stringify(r.phone_2), 'email_2:', JSON.stringify(r.email_2), 'company:', r.company_name);
+  }
   return {
     id:              r.id,
     idSupplier:      r.id_supplier   || '',
@@ -1249,6 +1252,7 @@ async function processImportData(headers, rows) {
     var ph2=(map.phone2!==undefined?row[map.phone2]:'').toString().trim();
     var em=(map.email!==undefined?row[map.email]:'').toString().trim();
     var em2=(map.email2!==undefined?row[map.email2]:'').toString().trim();
+    console.log('[Import] Row CP2='+JSON.stringify(cp2)+' Phone2='+JSON.stringify(ph2)+' Email2='+JSON.stringify(em2)+' CN='+cn);
     var categories=[];
     if(map.categories!==undefined){var raw=(row[map.categories]||'').toString().trim();if(raw)categories=raw.split(/[,;\/]/).map(function(s){return s.trim();}).filter(Boolean);}
     if(!categories.length) categories=['General Part'];
@@ -1279,6 +1283,8 @@ async function processImportData(headers, rows) {
     return;
   }
   await loadSuppliers();
+  console.log('[Import] After loadSuppliers — latest supplier:', suppliers.length>0 ? {cp2:suppliers[suppliers.length-1].contactPerson2, ph2:suppliers[suppliers.length-1].phone2, em2:suppliers[suppliers.length-1].email2, cn:suppliers[suppliers.length-1].companyName} : 'none');
+  console.log('[Import] Sample from DB — all with CP2:', suppliers.filter(function(s){return s.contactPerson2;}).map(function(s){return s.companyName+': '+s.contactPerson2;}));
   hideLoading();
   render();
   showToast('Imported ' + batch.length + ' supplier'+(batch.length>1?'s':'')+(skipped>0?', '+skipped+' skipped':'')+'.','success');
