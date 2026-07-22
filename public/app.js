@@ -1289,19 +1289,23 @@ async function processImportData(headers, rows) {
   }
 }
 
-async function exportCSV() {
+async function exportExcel() {
   var hdrs=['ID-Supplier','Company Name','Contact Person 1','Contact Person 2','Phone 1','Phone 2','Email 1','Email 2','Website','Address','Location','Categories','Products','Last Transaction Date','Notes'];
   var rows = suppliers.map(function(s){
     var prodStr=(s.products||[]).map(function(p){return typeof p==='string'?p:p.name;}).join(', ');
-    var txnDate = s.lastTransactionDate || '';
-    return [csvEsc(s.idSupplier||''),csvEsc(s.companyName),csvEsc(s.contactPerson),csvEsc(s.contactPerson2||''),
-            csvEsc(s.phone),csvEsc(s.phone2||''),csvEsc(s.email||''),csvEsc(s.email2||''),
-            csvEsc(s.website||''),csvEsc(s.address||''),csvEsc(s.location||''),
-            csvEsc((s.categories||[]).join(', ')),csvEsc(prodStr),csvEsc(txnDate),csvEsc(s.notes||'')];
+    return [
+      s.idSupplier||'', s.companyName, s.contactPerson, s.contactPerson2||'',
+      s.phone, s.phone2||'', s.email||'', s.email2||'',
+      s.website||'', s.address||'', s.location||'',
+      (s.categories||[]).join(', '), prodStr, s.lastTransactionDate||'', s.notes||''
+    ];
   });
-  var csv=hdrs.join(',')+'\n'+rows.map(function(r){return r.join(',');}).join('\n');
-  await downloadFile(csv,'suppliers.csv','text/csv');
-  showToast('CSV exported!','success');
+  var ws = XLSX.utils.aoa_to_sheet([hdrs].concat(rows));
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Suppliers');
+  var buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  await downloadFile(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'suppliers.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  showToast('Excel exported!','success');
 }
 
 async function downloadTemplate() {
@@ -1311,11 +1315,11 @@ async function downloadTemplate() {
     ['1000188','CV Teknik Prima','Siti Rahma','Andi','022-7890456','0812345678','siti@prima.com','andi@prima.com','','Jl. Asia Afrika No.45','','Electronics','PCB Assemblies;Microcontrollers','2026-03-20','ISO certified'],
     ['','UD Berkah Abadi','Ahmad Fauzi','','0341-123456','','ahmad@abadi.com','','','Jl. Ijen No.7','','Stationery;General Part','Paper;Pens;Markers','','Minimum order 100 pcs']
   ];
-  var csv=hdrs.map(csvEsc).join(',')+'\n';
-  rows.forEach(function(row){
-    csv+=row.map(csvEsc).join(',')+'\n';
-  });
-  await downloadFile(csv,'template-import.csv','text/csv');
+  var ws = XLSX.utils.aoa_to_sheet([hdrs].concat(rows));
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Template');
+  var buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  await downloadFile(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'template-import.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   showToast('Template downloaded!','success');
 }
 

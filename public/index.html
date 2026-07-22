@@ -148,8 +148,8 @@
           <div class="flex items-center gap-2 flex-wrap">
             <input type="file" id="importFile" accept=".csv,.xls,.xlsx" style="display:none" onchange="handleImport(this)">
             <button onclick="document.getElementById('importFile').click()" id="importBtn" class="toolbar-icon-btn hidden" title="Import CSV/Excel"><i class="fas fa-file-import"></i><span class="hidden sm:inline">Import</span></button>
-            <button onclick="downloadTemplate()" id="templateBtn" class="toolbar-icon-btn" title="Download Template CSV"><i class="fas fa-download"></i><span class="hidden sm:inline">Template</span></button>
-            <button onclick="exportCSV()" class="toolbar-icon-btn" title="Export to CSV"><i class="fas fa-file-csv"></i><span class="hidden sm:inline">Export</span></button>
+            <button onclick="downloadTemplate()" id="templateBtn" class="toolbar-icon-btn" title="Download Template Excel"><i class="fas fa-download"></i><span class="hidden sm:inline">Template</span></button>
+            <button onclick="exportExcel()" class="toolbar-icon-btn" title="Export to Excel"><i class="fas fa-file-excel"></i><span class="hidden sm:inline">Export</span></button>
             <span class="toolbar-divider"></span>
             <button onclick="openSummaryModal()" class="toolbar-icon-btn" title="Charts &amp; Summary"><i class="fas fa-chart-pie"></i><span class="hidden sm:inline">Summary</span></button>
             <button onclick="openManageCategories()" id="manageCategoriesBtn" class="toolbar-icon-btn hidden" title="Manage Categories"><i class="fas fa-tags"></i><span class="hidden sm:inline">Categories</span></button>
