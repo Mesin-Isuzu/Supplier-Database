@@ -835,6 +835,8 @@ async function saveSupplier() {
     notes:            $('fNotes').value.trim()
   };
 
+  console.log('[Save] Payload CP2:', JSON.stringify(payload.contact_person_2), '| Phone2:', JSON.stringify(payload.phone_2), '| Email2:', JSON.stringify(payload.email_2));
+
   showLoading();
   var error;
 
@@ -1229,6 +1231,10 @@ async function processImportData(headers, rows) {
   }
   if (map.companyName===undefined) { showToast('Could not find "Company Name" column.','error'); return; }
 
+  console.log('[Import] Headers:', hLower);
+  console.log('[Import] Column mapping:', JSON.parse(JSON.stringify(map)));
+  console.log('[Import] CP2 idx:', map.contactPerson2, '| Phone2 idx:', map.phone2, '| Email2 idx:', map.email2);
+
   if (map.idSupplier!==undefined && map.idSupplier===map.companyName) {
     var hdr = hLower[map.idSupplier];
     var isId = /(^|[^a-z])(id|kode|code|no|nomor)([^a-z]|$)/.test(hdr);
@@ -1239,7 +1245,7 @@ async function processImportData(headers, rows) {
     if (map.companyName===undefined) { showToast('Could not find "Company Name" column.','error'); return; }
   }
 
-  var batch=[], skipped=0;
+  var batch=[], skipped=0, firstRow=true;
   rows.forEach(function(row) {
     if(typeof row==='string') row=[row];
     var cn=(row[map.companyName]||'').toString().trim(); if(!cn){skipped++;return;}
@@ -1249,6 +1255,11 @@ async function processImportData(headers, rows) {
     var ph2=(map.phone2!==undefined?row[map.phone2]:'').toString().trim();
     var em=(map.email!==undefined?row[map.email]:'').toString().trim();
     var em2=(map.email2!==undefined?row[map.email2]:'').toString().trim();
+    if (firstRow) {
+      firstRow = false;
+      console.log('[Import] Row 0 raw:', row);
+      console.log('[Import] Row 0 extracted — CP2:', JSON.stringify(cp2), '| Phone2:', JSON.stringify(ph2), '| Email2:', JSON.stringify(em2));
+    }
     var categories=[];
     if(map.categories!==undefined){var raw=(row[map.categories]||'').toString().trim();if(raw)categories=raw.split(/[,;\/]/).map(function(s){return s.trim();}).filter(Boolean);}
     if(!categories.length) categories=['General Part'];
@@ -1271,6 +1282,7 @@ async function processImportData(headers, rows) {
   });
 
   if (!batch.length) { showToast('No valid rows found.', 'warning'); return; }
+  console.log('[Import] Batch count:', batch.length, '| First item CP2:', JSON.stringify(batch[0].contact_person_2), '| Phone2:', JSON.stringify(batch[0].phone_2), '| Email2:', JSON.stringify(batch[0].email_2));
   showLoading();
   var { error } = await supabase.from('suppliers').insert(batch);
   if (error) {
