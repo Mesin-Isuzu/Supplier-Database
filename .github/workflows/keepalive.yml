@@ -1,0 +1,24 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    - cron: '0 3 */2 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase Auth Health
+        run: |
+          code=$(curl -s -o /tmp/supabase_health.json -w "%{http_code}" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqbHJuaXpwbG94dWJ4a290cmluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMTcyNDUsImV4cCI6MjA5Nzg5MzI0NX0.PHjQvOh7tbObp-bYZmGDD8unI-fLS2U64rgduVFSZ7k" \
+            https://fjlrnizploxubxkotrin.supabase.co/auth/v1/health)
+          echo "Supabase health HTTP: $code"
+          cat /tmp/supabase_health.json
+          if [ "$code" = "503" ]; then
+            echo "::warning::Supabase project paused - restore from dashboard"
+          fi
