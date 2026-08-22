@@ -45,7 +45,7 @@
 /* ─── Base ──────────────────────────────────── */
 body {
   font-family: var(--font-body);
-  background: var(--color-bg);
+  background: linear-gradient(rgba(244,246,249,0.93), rgba(244,246,249,0.96)), url('bg.webp') center / cover no-repeat fixed;
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -89,7 +89,7 @@ body {
 
 /* ─── Login Page ────────────────────────────── */
 .login-page-bg {
-  background: linear-gradient(135deg, #1A1F2E 0%, #0F1624 50%, #1A1F2E 100%);
+  background: linear-gradient(rgba(15,22,36,0.8), rgba(15,22,36,0.86)), url('bg.webp') center / cover no-repeat fixed;
   position: relative;
 }
 .login-page-bg::before {
@@ -815,13 +815,13 @@ textarea.form-input {
 
 .landing-page {
   display: none;
-  background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+  background: linear-gradient(rgba(240,244,248,0.92), rgba(226,232,240,0.95)), url('bg.webp') center / cover no-repeat fixed;
 }
 .landing-page.flex {
   display: flex;
 }
 [data-theme="dark"] .landing-page {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(rgba(15,23,42,0.88), rgba(30,41,59,0.93)), url('bg.webp') center / cover no-repeat fixed;
 }
 
 .landing-content {
@@ -1020,6 +1020,10 @@ textarea.form-input {
   --color-text-muted: #64748B;
   --color-border: #334155;
   --color-border-light: #1E293B;
+}
+
+[data-theme="dark"] body {
+  background: linear-gradient(rgba(15,23,42,0.93), rgba(15,23,42,0.96)), url('bg.webp') center / cover no-repeat fixed;
 }
 
 [data-theme="dark"] .site-header {
