@@ -414,6 +414,7 @@ function getFilteredSorted() {
                (s.contactPerson2||'').toLowerCase().includes(q) ||
                (s.phone||'').toLowerCase().includes(q) ||
                (s.email||'').toLowerCase().includes(q) ||
+               (s.address||'').toLowerCase().includes(q) ||
                productStr.includes(q);
     }
     var matchYr = !yr || (s.lastTransactionDate && new Date(s.lastTransactionDate).getFullYear().toString() === yr);
@@ -491,6 +492,7 @@ function render() {
       '<td class="px-4 py-3 font-medium" data-label="Company">'+escHtml(s.companyName)+'</td>' +
       '<td class="px-4 py-3 text-gray-600" data-label="Contact">'+escHtml(s.contactPerson)+(s.contactPerson2?'<br>'+escHtml(s.contactPerson2):'')+'</td>' +
       '<td class="px-4 py-3 text-gray-600 hidden md:table-cell" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br>'+escHtml(s.phone2):'')+'</td>' +
+      '<td class="px-4 py-3 text-gray-600 hidden md:table-cell max-w-[260px]" data-label="Address">'+(s.address?'<span class="block truncate" title="'+escHtml(s.address)+'">'+escHtml(s.address)+'</span>':'\u2014')+'</td>' +
       '<td class="px-4 py-3" data-label="Categories">'+cats+'</td>' +
       '<td class="px-4 py-3" data-label="Products">'+prods+'</td>' +
       '<td class="px-4 py-3 text-center md:text-center" data-label="Status"><span class="text-xs font-medium px-2 py-1 rounded-full '+txnCls+'">'+txnDate+'</span></td>' +
@@ -1629,127 +1631,178 @@ function closeSummaryModal() {
   _summaryCharts = {};
 }
 
-function parseCityFromMaps(location) {
-  if (!location) return null;
-  var url = location;
+// ─── Region (Kabupaten/Kota) Classification ──────────────
+var _regionIndex = null;
 
-  // 1. Cari parameter q=... (Google Maps search query)
-  var qMatch = url.match(/[?&]q=([^&]+)/i);
-  if (qMatch) {
-    var q = decodeURIComponent(qMatch[1].replace(/\+/g, ' '));
-    var city = parseCity(q);
-    if (city && city !== 'Lainnya') return city;
-  }
+function _regionKey(name) {
+  return (name || '').toLowerCase()
+    .replace(/\bdi\s+yogyakarta\b/g, 'yogyakarta')
+    .replace(/\bdki\s+jakarta\b/g, 'jakarta')
+    .replace(/\bdaerah\s+istimewa\b/g, ' ')
+    .replace(/\bdaerah\s+khusus\b/g, ' ')
+    .replace(/\bsumatra\b/g, 'sumatera')
+    .replace(/\bkabupaten\b/g, ' ')
+    .replace(/\bkab\.?/g, ' ')
+    .replace(/\bkota\b/g, ' ')
+    .replace(/\bkotamadya\b/g, ' ')
+    .replace(/\bkodya\b/g, ' ')
+    .replace(/\badministrasi\b/g, ' ')
+    .replace(/\badm\.?/g, ' ')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
-  // 2. Cari path /place/... (Google Maps place URL)
-  var placeMatch = url.match(/\/place\/([^/@?]+)/i);
-  if (placeMatch) {
-    var place = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
-    // Place path biasanya format: "Nama Tempat, Kecamatan, Kota, Provinsi"
-    var parts = place.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+function _buildRegionIndex() {
+  if (_regionIndex) return _regionIndex;
+  var idx = {};
+  (window.REGIONS_ID || []).forEach(function(r) {
+    var sep = r.indexOf('|');
+    var name = sep === -1 ? r : r.substring(0, sep);
+    var prov = sep === -1 ? '' : r.substring(sep + 1);
+    var k = _regionKey(name);
+    (idx[k] = idx[k] || []).push({ name: name, province: prov });
+  });
+  _regionIndex = idx;
+  return idx;
+}
 
-    // Cari "Kota X" / "Kabupaten X" dalam path
-    for (var i = 0; i < parts.length; i++) {
-      var p = parts[i];
-      var pl = p.toLowerCase();
-      var mKota = pl.match(/^(kota)\s+(.+)/i);
-      if (mKota) return 'Kota ' + toTitleCase(mKota[2]);
-      var mKab  = pl.match(/^(kabupaten|kab\.?)\s+(.+)/i);
-      if (mKab)  return 'Kab. ' + toTitleCase(mKab[2]);
-    }
-
-    // Ambil bagian terakhir yang bukan numerik/kode pos
-    for (var j = parts.length - 1; j >= 0; j--) {
-      var pj = parts[j];
-      if (pj.length > 2 && !/^\d/.test(pj) && !/^\d{5}$/.test(pj)) {
-        // Cek apakah bagian ini terlihat seperti nama provinsi (umumnya 1 kata pendek untuk provinsi besar)
-        var commonProvinces = ['jawa barat', 'jawa timur', 'jawa tengah', 'dki jakarta', 'banten',
-                               'sumatera utara', 'sumatera barat', 'sumatera selatan', 'riau',
-                               'kalimantan timur', 'kalimantan barat', 'kalimantan selatan',
-                               'sulawesi selatan', 'sulawesi utara', 'bali', 'papua', 'yogyakarta',
-                               'aceh', 'lampung', 'bengkulu', 'jambi', 'maluku', 'ntb', 'ntt',
-                               'gorontalo', 'maluku utara', 'kepulauan riau', 'bangka belitung',
-                               'sulawesi tengah', 'sulawesi tenggara', 'sulawesi barat',
-                               'kalimantan utara', 'kalimantan tengah', 'papua barat',
-                               'di yogyakarta', 'daerah istimewa', 'daerah khusus'];
-        var isProv = false;
-        for (var k = 0; k < commonProvinces.length; k++) {
-          if (pj.toLowerCase().indexOf(commonProvinces[k]) !== -1) { isProv = true; break; }
-        }
-        if (!isProv) return toTitleCase(pj);
-      }
-    }
-
-    return toTitleCase(parts[0]);
-  }
-
+function _regionTypeOf(raw) {
+  var l = (raw || '').toLowerCase();
+  if (/\bkabupaten\b|\bkab\.?/.test(l)) return 'kab';
+  if (/\bkota\b|\bkotamadya\b|\bkodya\b/.test(l)) return 'kota';
   return null;
 }
 
-function parseCity(address) {
-  if (!address) return 'Lainnya';
+function normalizeRegionName(raw, provinceHint) {
+  if (!raw) return null;
+  var idx = _buildRegionIndex();
+  var key = _regionKey(raw);
+  if (!key) return null;
 
-  // Normalisasi: hapus kode pos (5 digit angka di akhir)
-  var cleaned = address.replace(/\b\d{5}\b/g, '').trim();
+  var cands = idx[key];
+  if (!cands || !cands.length) return null;
+  if (cands.length === 1) return { name: cands[0].name, province: cands[0].province };
 
-  var parts = cleaned.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-
-  var skipPrefixes = ['jl.', 'jl ', 'jalan ', 'jln.', 'jln ', 'no.', 'no ', 'blok ', 'blk.', 'rt ', 'rw ',
-                      'ds.', 'ds ', 'dusun ', 'kp.', 'kp ', 'kampung ', 'gg.', 'gg ', 'gang '];
-
-  // 1. Cari "Kota ..." / "Kabupaten ..." / "Kab. ..." eksplisit
-  for (var i = 0; i < parts.length; i++) {
-    var p = parts[i];
-    var pl = p.toLowerCase();
-    var mKota = pl.match(/^(kota)\s+(.+)/i);
-    if (mKota) return 'Kota ' + toTitleCase(mKota[2]);
-    var mKab  = pl.match(/^(kabupaten|kab\.?)\s+(.+)/i);
-    if (mKab)  return 'Kab. ' + toTitleCase(mKab[2]);
+  var type = _regionTypeOf(raw);
+  if (type) {
+    var prefix = type === 'kab' ? 'kabupaten ' : 'kota ';
+    var byType = cands.filter(function(c) { return c.name.toLowerCase().indexOf(prefix) === 0; });
+    if (byType.length === 1) return { name: byType[0].name, province: byType[0].province };
   }
-
-  // 2. Cari bagian yg mengandung kata "Kecamatan" — ambil nama kecamatannya sebagai fallback
-  var kecName = null;
-  for (var j = 0; j < parts.length; j++) {
-    var pl2 = parts[j].toLowerCase();
-    var mKec = pl2.match(/^kec(?:amatan)?[.\s]+(.+)/i);
-    if (mKec) { kecName = toTitleCase(mKec[1]); continue; }
-    if (pl2.indexOf('kecamatan') === 0 || pl2.indexOf('kec.') === 0) continue;
-  }
-
-  // 3. Ambil bagian terakhir yang bukan awalan jalan / terlalu pendek / numerik / administratif
-  var adminWords = ['kecamatan', 'kec.', 'kec ', 'kelurahan', 'kel.', 'kel ', 'desa', 'provinsi',
-                    'prov.', 'prov ', 'indonesia', 'rt ', 'rw ', 'kodepos', 'kode pos'];
-  for (var k = parts.length - 1; k >= 0; k--) {
-    var pk = parts[k];
-    var pkl = pk.toLowerCase();
-
-    // Skip jika diawali prefix jalan
-    var pref = false;
-    for (var x = 0; x < skipPrefixes.length; x++) {
-      if (pkl.indexOf(skipPrefixes[x]) === 0) { pref = true; break; }
+  if (provinceHint) {
+    var pk = _regionKey(provinceHint);
+    if (pk) {
+      var byProv = cands.filter(function(c) { return _regionKey(c.province) === pk; });
+      if (byProv.length === 1) return { name: byProv[0].name, province: byProv[0].province };
     }
-    if (pref) continue;
-
-    // Skip jika bagian administratif
-    var adm = false;
-    for (var y = 0; y < adminWords.length; y++) {
-      if (pkl.indexOf(adminWords[y]) === 0) { adm = true; break; }
-    }
-    if (adm) continue;
-
-    // Skip jika pendek banget atau dimulai angka (biasanya nomor rumah/RT/RW)
-    if (pk.length <= 2 || /^\d/.test(pk)) continue;
-
-    return toTitleCase(pk);
   }
-
-  return kecName || 'Lainnya';
+  // Ambigu tanpa informasi tambahan: pilih versi "Kota" bila ada (penggunaan umum)
+  var kotaOnly = cands.filter(function(c) { return c.name.toLowerCase().indexOf('kota ') === 0; });
+  if (kotaOnly.length === 1) return { name: kotaOnly[0].name, province: kotaOnly[0].province };
+  return null;
 }
 
-function toTitleCase(str) {
-  return str.replace(/\w\S*/g, function(txt) {
-    return txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase();
-  });
+var _provinceNames = ['Aceh','Sumatera Utara','Sumatera Barat','Riau','Jambi','Sumatera Selatan','Bengkulu','Lampung','Kepulauan Bangka Belitung','Kepulauan Riau','DKI Jakarta','Jawa Barat','Jawa Tengah','Daerah Istimewa Yogyakarta','Jawa Timur','Banten','Bali','Nusa Tenggara Barat','Nusa Tenggara Timur','Kalimantan Barat','Kalimantan Tengah','Kalimantan Selatan','Kalimantan Timur','Kalimantan Utara','Sulawesi Utara','Sulawesi Tengah','Sulawesi Selatan','Sulawesi Tenggara','Gorontalo','Sulawesi Barat','Maluku','Maluku Utara','Papua','Papua Barat','Papua Selatan','Papua Tengah','Papua Pegunungan','Papua Barat Daya'];
+
+function _provinceFromText(text) {
+  if (!text) return null;
+  var t = text.toLowerCase();
+  for (var i = 0; i < _provinceNames.length; i++) {
+    var p = _provinceNames[i];
+    if (t.indexOf(p.toLowerCase()) !== -1) return p;
+    var pk = _regionKey(p);
+    if (pk && t.indexOf(pk) !== -1) return p;
+  }
+  return null;
+}
+
+function cityFromAddress(address) {
+  if (!address) return null;
+  var cleaned = address.replace(/\b\d{5}\b/g, ' ').trim();
+  var parts = cleaned.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+  var provinceHint = _provinceFromText(cleaned);
+  for (var i = parts.length - 1; i >= 0; i--) {
+    var r = normalizeRegionName(parts[i], provinceHint);
+    if (r) return r;
+  }
+  return null;
+}
+
+// ─── Reverse Geocoding ───────────────────────────────────
+var _geoCacheKey = 'summary_revgeo_v1';
+
+function _geoCache() {
+  try { return JSON.parse(localStorage.getItem(_geoCacheKey) || '{}'); } catch (e) { return {}; }
+}
+
+function _geoCachePut(key, val) {
+  try {
+    var c = _geoCache();
+    c[key] = val;
+    localStorage.setItem(_geoCacheKey, JSON.stringify(c));
+  } catch (e) {}
+}
+
+function extractCoordsFromMapsUrl(location) {
+  if (!location) return null;
+  var m;
+  m = location.match(/@(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/);
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  m = location.match(/[?&](?:q|ll|center|query)=(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/i);
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  m = location.match(/(-?\d{1,3}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})/);
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  return null;
+}
+
+async function reverseGeocodeCity(lat, lng) {
+  var key = lat.toFixed(3) + ',' + lng.toFixed(3);
+  var cache = _geoCache();
+  if (cache[key]) return cache[key];
+  var result = null;
+
+  try {
+    var r = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + lat + '&longitude=' + lng + '&localityLanguage=id');
+    if (r.ok) {
+      var j = await r.json();
+      var admin = (j.localityInfo && j.localityInfo.administrative) || [];
+      var provHint = j.principalSubdivision || '';
+      var raw = '';
+      for (var i = 0; i < admin.length; i++) {
+        var a = admin[i];
+        if (a.adminLevel === 4 && a.name) provHint = a.name;
+        if (a.adminLevel === 5 && a.name) {
+          var desc = (a.description || '').toLowerCase();
+          if (desc.indexOf('kabupaten') !== -1) raw = 'Kabupaten ' + a.name;
+          else if (desc.indexOf('kota') !== -1) raw = 'Kota ' + a.name;
+          else raw = a.name;
+        }
+      }
+      if (!raw) raw = j.city || j.locality || '';
+      var region = normalizeRegionName(raw, provHint);
+      if (region) result = { name: region.name, province: region.province };
+    }
+  } catch (e) {}
+
+  if (!result) {
+    try {
+      var r2 = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + lat + '&lon=' + lng + '&zoom=10&accept-language=id', { headers: { 'User-Agent': 'SupplierDB-MesinIsuzu' } });
+      if (r2.ok) {
+        var j2 = await r2.json();
+        var a = j2.address || {};
+        var region2 = normalizeRegionName(a.county || a.city || a.state_district || a.municipality, a.state);
+        if (region2) result = { name: region2.name, province: region2.province };
+      }
+    } catch (e) {}
+  }
+
+  if (result) _geoCachePut(key, result);
+  return result;
+}
+
+function _sleep(ms) {
+  return new Promise(function(res) { setTimeout(res, ms); });
 }
 
 function renderSummaryCharts() {
@@ -1838,40 +1891,8 @@ function renderSummaryCharts() {
     }
   });
 
-  // ── 3. Chart by Location (Top 10 cities) ──
-  var locCount = {};
-  suppliers.forEach(function(s) {
-    var city = parseCityFromMaps(s.location) || parseCity(s.address);
-    if (!city) return;
-    locCount[city] = (locCount[city] || 0) + 1;
-  });
-  var locEntries = Object.entries(locCount).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 10);
-  var locLabels  = locEntries.map(function(e) { return e[0]; });
-  var locData    = locEntries.map(function(e) { return e[1]; });
-
-  _summaryCharts.location = new Chart($('chartLocation'), {
-    type: 'bar',
-    data: {
-      labels: locLabels,
-      datasets: [{
-        data: locData,
-        backgroundColor: locEntries.map(function(_, i) { return palette[i % palette.length]; }),
-        borderRadius: 4,
-        borderSkipped: false
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      indexAxis: 'y',
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: { ticks: { stepSize: 1, font: { size: 10 }, color: '#6b7280' }, grid: { color: '#f3f4f6' } },
-        y: { ticks: { font: { size: 11 }, color: '#4b5563' }, grid: { display: false } }
-      }
-    }
-  });
+  // ── 3. Chart by Location (Top 10 kabupaten/kota) ──
+  renderLocationChart();
 
   // ── 4. Chart by Products (Top 10) ──
   var prodCount = {};
@@ -1892,6 +1913,84 @@ function renderSummaryCharts() {
       datasets: [{
         data: prodData,
         backgroundColor: prodEntries.map(function(_, i) { return palette[i % palette.length]; }),
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: { ticks: { stepSize: 1, font: { size: 10 }, color: '#6b7280' }, grid: { color: '#f3f4f6' } },
+        y: { ticks: { font: { size: 11 }, color: '#4b5563' }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+async function renderLocationChart() {
+  var loadingEl = $('locChartLoading');
+  var canvasEl = $('chartLocation');
+  if (loadingEl) {
+    loadingEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memuat lokasi…';
+    loadingEl.classList.remove('hidden');
+    loadingEl.classList.add('flex');
+  }
+  if (canvasEl) canvasEl.style.visibility = 'hidden';
+
+  var withCoords = [], withoutCoords = [];
+  suppliers.forEach(function(s) {
+    var c = extractCoordsFromMapsUrl(s.location);
+    if (c) withCoords.push({ s: s, c: c }); else withoutCoords.push(s);
+  });
+
+  var locCount = {};
+  var cache = _geoCache();
+
+  for (var i = 0; i < withCoords.length; i++) {
+    var item = withCoords[i];
+    var key = item.c.lat.toFixed(3) + ',' + item.c.lng.toFixed(3);
+    var region = cache[key] || await reverseGeocodeCity(item.c.lat, item.c.lng);
+    if (!region) region = cityFromAddress(item.s.address);
+    if (region) locCount[region.name] = (locCount[region.name] || 0) + 1;
+    else locCount['Lainnya'] = (locCount['Lainnya'] || 0) + 1;
+    if (loadingEl && (withCoords.length > 1)) {
+      loadingEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memuat lokasi (' + (i + 1) + '/' + withCoords.length + ')';
+    }
+    if ($('summaryModal').classList.contains('hidden')) return;
+    if (i < withCoords.length - 1) await _sleep(250);
+  }
+
+  withoutCoords.forEach(function(s) {
+    var region = cityFromAddress(s.address);
+    if (region) locCount[region.name] = (locCount[region.name] || 0) + 1;
+    else locCount['Lainnya'] = (locCount['Lainnya'] || 0) + 1;
+  });
+
+  if ($('summaryModal').classList.contains('hidden')) return;
+  if (loadingEl) {
+    loadingEl.classList.add('hidden');
+    loadingEl.classList.remove('flex');
+  }
+  if (canvasEl) canvasEl.style.visibility = '';
+
+  var palette = ['#4f46e5','#0891b2','#059669','#d97706','#dc2626','#7c3aed','#db2777','#2563eb',
+                 '#65a30d','#ea580c','#9333ea','#0284c7','#16a34a','#ca8a04','#e11d48'];
+
+  var locEntries = Object.entries(locCount).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 10);
+  var locLabels  = locEntries.map(function(e) { return e[0]; });
+  var locData    = locEntries.map(function(e) { return e[1]; });
+
+  _summaryCharts.location = new Chart($('chartLocation'), {
+    type: 'bar',
+    data: {
+      labels: locLabels,
+      datasets: [{
+        data: locData,
+        backgroundColor: locEntries.map(function(_, i) { return palette[i % palette.length]; }),
         borderRadius: 4,
         borderSkipped: false
       }]
