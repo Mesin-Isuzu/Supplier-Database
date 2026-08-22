@@ -197,8 +197,6 @@ async function handleLogout() {
   currentUser = null;
   suppliers = [];
   $('appContent').classList.remove('active');
-  $('adminLandingPage').classList.add('hidden');
-  $('adminLandingPage').classList.remove('flex');
   $('loginPage').classList.remove('hidden');
   $('loginPage').classList.add('active');
   $('loginUsername').value = '';
@@ -280,20 +278,15 @@ async function onLoginSuccess() {
   $('loginPage').classList.remove('active');
   bindPhoneValidation();
 
-  if (currentUser && currentUser.role === 'Admin') {
-    applyPermissions();
-    showAdminLanding();
-  } else {
-    $('appContent').classList.add('active');
-    applyPermissions();
-    updateNavbar();
-    showLoading();
-    await Promise.all([loadCategories(), loadSuppliers(), loadMasterSuppliers()]);
-    populateCategoryFilter();
-    populateYearFilter();
-    hideLoading();
-    render();
-  }
+  $('appContent').classList.add('active');
+  applyPermissions();
+  updateNavbar();
+  showLoading();
+  await Promise.all([loadCategories(), loadSuppliers(), loadMasterSuppliers()]);
+  populateCategoryFilter();
+  populateYearFilter();
+  hideLoading();
+  render();
   showToast('Welcome, ' + currentUser.username + '!', 'success');
 }
 
@@ -306,42 +299,9 @@ function updateNavbar() {
   $('navRole').className = 'text-xs px-2 py-0.5 rounded-full ' + (rc[currentUser.role] || 'bg-gray-100 text-gray-700');
   $('navRole').classList.remove('hidden');
   $('logoutBtn').classList.remove('hidden');
-  if (currentUser.role === 'Admin') {
-    $('navMenuBtn').classList.remove('hidden');
-  } else {
-    $('navMenuBtn').classList.add('hidden');
-  }
 }
 
-// ─── Admin Landing ─────────────────────────────────────
-
-function showAdminLanding() {
-  $('appContent').classList.remove('active');
-  $('adminLandingPage').classList.remove('hidden');
-  $('adminLandingPage').classList.add('flex');
-  if (currentUser) {
-    $('landingUsername').textContent = currentUser.username;
-  }
-}
-
-async function goToMainPage() {
-  $('adminLandingPage').classList.add('hidden');
-  $('adminLandingPage').classList.remove('flex');
-  $('appContent').classList.add('active');
-  applyPermissions();
-  updateNavbar();
-  showLoading();
-  await Promise.all([loadCategories(), loadSuppliers(), loadMasterSuppliers()]);
-  populateCategoryFilter();
-  populateYearFilter();
-  hideLoading();
-  render();
-}
-
-function openMasterSupplierFromLanding() {
-  window.__msFromLanding = true;
-  openMasterSupplierModal();
-}
+// ─── Permissions ─────────────────────────────────────
 
 function applyPermissions() {
   var role = currentUser ? currentUser.role : 'Viewer';
@@ -2025,7 +1985,6 @@ function populateMasterSupplierDatalist() {
 }
 
 async function openMasterSupplierModal() {
-  window.__msFromLanding = false;
   $('masterSupplierModal').classList.remove('hidden');
   $('masterSupplierModal').classList.add('flex');
   $('msTableBody').innerHTML = '<tr><td colspan="3" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr>';
@@ -2049,10 +2008,6 @@ function closeMasterSupplierModal() {
   $('msAddBtn').textContent = 'Add';
   $('msCancelEditBtn').classList.add('hidden');
   $('msFormTitle').textContent = 'Add Master Supplier';
-
-  if (window.__msFromLanding) {
-    showAdminLanding();
-  }
 }
 
 function renderMasterSupplierTable() {

@@ -61,34 +61,6 @@
 
   <script>document.getElementById('loginPage').classList.remove('hidden');document.getElementById('loginPage').classList.add('active');document.getElementById('loadingOverlay').style.display='none';</script>
 
-  <!-- Admin Landing Page -->
-  <div id="adminLandingPage" class="landing-page hidden fixed inset-0 z-50 items-center justify-center">
-    <div class="landing-content w-full max-w-2xl px-4">
-      <div class="text-center mb-8">
-        <img src="logo.png" alt="Isuzu Logo" class="landing-logo h-12 mx-auto mb-3" style="filter: invert(16%) sepia(100%) saturate(7414%) hue-rotate(355deg) brightness(94%) contrast(108%);">
-        <h1 class="text-xl font-bold text-gray-900" style="font-family: 'Usuzi', sans-serif;">mesin isuzu indonesia</h1>
-        <p class="text-sm text-gray-500 mt-1">Welcome, <span id="landingUsername" class="font-semibold text-gray-700"></span></p>
-      </div>
-      <div class="landing-grid grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="landing-card" onclick="goToMainPage()">
-          <div class="landing-card-icon"><i class="fas fa-building"></i></div>
-          <h2 class="landing-card-title">Supplier Database</h2>
-          <p class="landing-card-desc">Kelola data supplier, produk, kategori, import/export data.</p>
-          <button class="landing-card-btn">Buka</button>
-        </div>
-        <div class="landing-card" onclick="openMasterSupplierFromLanding()">
-          <div class="landing-card-icon"><i class="fas fa-list-ul"></i></div>
-          <h2 class="landing-card-title">Master Supplier</h2>
-          <p class="landing-card-desc">Kelola referensi ID dan Nama Supplier yang digunakan di database.</p>
-          <button class="landing-card-btn">Buka</button>
-        </div>
-      </div>
-      <div class="text-center mt-6">
-        <button onclick="handleLogout()" class="text-sm text-gray-400 hover:text-gray-600 transition"><i class="fas fa-sign-out-alt mr-1"></i>Logout</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Main App -->
   <div id="appContent" class="app-content">
     <nav class="site-header sticky top-0 z-40">
@@ -102,7 +74,6 @@
             <span id="navUsername" class="header-user-name hidden"></span>
             <span id="navRole" class="header-role-badge hidden"></span>
             <button onclick="toggleTheme()" class="header-logout flex items-center gap-1 mr-2" title="Toggle theme"><i class="fas fa-moon" id="themeToggleIcon"></i></button>
-            <button onclick="showAdminLanding()" id="navMenuBtn" class="header-logout flex items-center gap-1 mr-2 hidden" title="Menu"><i class="fas fa-th-large"></i></button>
             <button onclick="handleLogout()" class="header-logout flex items-center gap-1" id="logoutBtn"><i class="fas fa-sign-out-alt"></i>Logout</button>
           </div>
         </div>
