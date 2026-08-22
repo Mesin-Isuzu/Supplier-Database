@@ -491,7 +491,7 @@ function render() {
       '<td class="px-4 py-3 font-mono text-sm text-indigo-600" data-label="ID">'+(s.idSupplier ? escHtml(s.idSupplier) : '\u2014')+'</td>' +
       '<td class="px-4 py-3 font-medium" data-label="Company">'+escHtml(s.companyName)+'</td>' +
       '<td class="px-4 py-3 text-gray-600" data-label="Contact">'+escHtml(s.contactPerson)+(s.contactPerson2?'<br>'+escHtml(s.contactPerson2):'')+'</td>' +
-      '<td class="px-4 py-3 text-gray-600 hidden md:table-cell" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br>'+escHtml(s.phone2):'')+'</td>' +
+      '<td class="px-4 py-3 text-gray-600 col-md" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br>'+escHtml(s.phone2):'')+'</td>' +
       '<td class="px-4 py-3 text-gray-600" data-label="Address">'+(s.address?escHtml(s.address):'\u2014')+'</td>' +
       '<td class="px-4 py-3" data-label="Categories">'+cats+'</td>' +
       '<td class="px-4 py-3" data-label="Products">'+prods+'</td>' +
