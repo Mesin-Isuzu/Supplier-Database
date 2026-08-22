@@ -70,9 +70,6 @@ var CATEGORIES = [];
 var CATEGORY_COLORS = {};
 var CATEGORY_TEXT_COLORS = {};
 var masterSuppliers = [];
-var msCurrentPage = 1;
-var msPageSize = 10;
-var msEditTargetId = null;
 var CATEGORY_PALETTE = [
   {bg:'#dbeafe',text:'#1e40af'},{bg:'#fce7f3',text:'#9d174d'},{bg:'#e0e7ff',text:'#3730a3'},{bg:'#d1fae5',text:'#065f46'},
   {bg:'#fef3c7',text:'#92400e'},{bg:'#f3e8ff',text:'#5b21b6'},{bg:'#ffedd5',text:'#9a3412'},{bg:'#f0fdf4',text:'#166534'},
@@ -320,7 +317,6 @@ function applyPermissions() {
   show('templateBtn',    canEdit);
   show('manageUsersBtn',      isAdmin);
   show('manageCategoriesBtn', isAdmin);
-  show('masterSupplierBtn',   isAdmin);
   show('addSupplierDivider',  canEdit);
 }
 
@@ -2061,7 +2057,7 @@ function closeAuditModal() {
   $('auditModal').classList.remove('flex');
 }
 
-// ─── Master Supplier ────────────────────────────────────
+// ─── Master Supplier (referensi untuk autocomplete form) ──
 
 async function loadMasterSuppliers() {
   var { data, error } = await supabase
@@ -2081,256 +2077,6 @@ function populateMasterSupplierDatalist() {
     opt.value = ms.nama_supplier;
     dl.appendChild(opt);
   });
-}
-
-async function openMasterSupplierModal() {
-  $('masterSupplierModal').classList.remove('hidden');
-  $('masterSupplierModal').classList.add('flex');
-  $('msTableBody').innerHTML = '<tr><td colspan="3" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr>';
-  await loadMasterSuppliers();
-  msCurrentPage = 1;
-  msEditTargetId = null;
-  $('msIdSupplier').value = '';
-  $('msNamaSupplier').value = '';
-  $('msAddBtn').textContent = 'Add';
-  $('msCancelEditBtn').classList.add('hidden');
-  $('msFormTitle').textContent = 'Add Master Supplier';
-  renderMasterSupplierTable();
-}
-
-function closeMasterSupplierModal() {
-  $('masterSupplierModal').classList.add('hidden');
-  $('masterSupplierModal').classList.remove('flex');
-  msEditTargetId = null;
-  $('msIdSupplier').value = '';
-  $('msNamaSupplier').value = '';
-  $('msAddBtn').textContent = 'Add';
-  $('msCancelEditBtn').classList.add('hidden');
-  $('msFormTitle').textContent = 'Add Master Supplier';
-}
-
-function renderMasterSupplierTable() {
-  var total = masterSuppliers.length;
-  var pages = Math.max(1, Math.ceil(total / msPageSize));
-  if (msCurrentPage > pages) msCurrentPage = pages;
-  var start = (msCurrentPage - 1) * msPageSize;
-  var page = masterSuppliers.slice(start, start + msPageSize);
-
-  var tbody = $('msTableBody');
-  if (!page.length) {
-    tbody.innerHTML = '<tr><td colspan="3" class="px-3 py-4 text-center text-gray-400 text-sm">No master suppliers found. Add one above or import from CSV.</td></tr>';
-    $('msPaginationBar').style.display = 'none';
-    return;
-  }
-  $('msPaginationBar').style.display = '';
-
-  tbody.innerHTML = page.map(function(ms) {
-    var isEditing = msEditTargetId === ms.id_supplier;
-    var rowClass = isEditing ? 'border-b border-gray-100 bg-indigo-50' : 'border-b border-gray-100 table-row-hover';
-    return '<tr class="'+rowClass+'">' +
-      '<td class="px-3 py-2 font-mono text-sm">'+escHtml(ms.id_supplier)+'</td>' +
-      '<td class="px-3 py-2 text-sm font-medium">'+escHtml(ms.nama_supplier)+'</td>' +
-      '<td class="px-3 py-2 text-center whitespace-nowrap">' +
-        '<button onclick="editMasterSupplierRow(\''+escHtml(ms.id_supplier)+'\')" class="text-xs text-yellow-500 hover:text-yellow-700 mx-1" title="Edit"><i class="fas fa-edit"></i></button>' +
-        '<button onclick="deleteMasterSupplier(\''+escHtml(ms.id_supplier)+'\')" class="text-xs text-red-500 hover:text-red-700 mx-1" title="Delete"><i class="fas fa-trash"></i></button>' +
-      '</td></tr>';
-  }).join('');
-
-  var info = $('msPaginationInfo');
-  var btns = $('msPaginationButtons');
-  info.textContent = 'Showing ' + Math.min(total, start+1) + '\u2013' + Math.min(total, start+msPageSize) + ' of ' + total;
-
-  var html = '';
-  html += '<button class="pagination-btn rounded-l-lg" onclick="msGoPage('+(msCurrentPage-1)+')" '+(msCurrentPage===1?'disabled':'')+'>\u2039</button>';
-  for (var i = 1; i <= pages; i++) {
-    if (pages > 7 && Math.abs(i - msCurrentPage) > 2 && i !== 1 && i !== pages) {
-      if (i === msCurrentPage - 3 || i === msCurrentPage + 3) html += '<button class="pagination-btn" disabled>\u2026</button>';
-      continue;
-    }
-    html += '<button class="pagination-btn'+(i===msCurrentPage?' active':'')+'" onclick="msGoPage('+i+')">'+i+'</button>';
-  }
-  html += '<button class="pagination-btn rounded-r-lg" onclick="msGoPage('+(msCurrentPage+1)+')" '+(msCurrentPage===pages?'disabled':'')+'>\u203a</button>';
-  btns.innerHTML = html;
-}
-
-function msGoPage(p) {
-  var pages = Math.max(1, Math.ceil(masterSuppliers.length / msPageSize));
-  if (p < 1 || p > pages) return;
-  msCurrentPage = p;
-  renderMasterSupplierTable();
-}
-
-function editMasterSupplierRow(id_supplier) {
-  msEditTargetId = id_supplier;
-  var ms = masterSuppliers.find(function(m){ return m.id_supplier === id_supplier; });
-  if (ms) {
-    $('msIdSupplier').value = ms.id_supplier;
-    $('msNamaSupplier').value = ms.nama_supplier;
-  }
-  $('msAddBtn').textContent = 'Update';
-  $('msCancelEditBtn').classList.remove('hidden');
-  $('msFormTitle').textContent = 'Edit Master Supplier';
-  renderMasterSupplierTable();
-}
-
-function cancelEditMasterSupplier() {
-  msEditTargetId = null;
-  $('msIdSupplier').value = '';
-  $('msNamaSupplier').value = '';
-  $('msAddBtn').textContent = 'Add';
-  $('msCancelEditBtn').classList.add('hidden');
-  $('msFormTitle').textContent = 'Add Master Supplier';
-  renderMasterSupplierTable();
-}
-
-async function addMasterSupplier() {
-  var idSup = $('msIdSupplier').value.trim();
-  var namaSup = $('msNamaSupplier').value.trim();
-
-  if (!idSup || !namaSup) { showToast('Both ID Supplier and Nama Supplier are required.', 'error'); return; }
-  if (!/^\d{7}$/.test(idSup)) { showToast('ID Supplier must be exactly 7 digits.', 'error'); return; }
-
-  if (msEditTargetId) {
-    if (idSup !== msEditTargetId && masterSuppliers.some(function(m){ return m.id_supplier === idSup; })) {
-      showToast('ID Supplier already exists.', 'error'); return;
-    }
-    showLoading();
-    var { error } = await supabase
-      .from('master_suppliers')
-      .update({ id_supplier: idSup, nama_supplier: namaSup })
-      .eq('id_supplier', msEditTargetId);
-    hideLoading();
-    if (error) { showToast('Error updating: ' + error.message, 'error'); return; }
-
-    var idx = masterSuppliers.findIndex(function(m){ return m.id_supplier === msEditTargetId; });
-    if (idx !== -1) {
-      masterSuppliers[idx].id_supplier = idSup;
-      masterSuppliers[idx].nama_supplier = namaSup;
-    }
-    masterSuppliers.sort(function(a,b){ return a.nama_supplier.localeCompare(b.nama_supplier); });
-    msEditTargetId = null;
-    $('msIdSupplier').value = '';
-    $('msNamaSupplier').value = '';
-    $('msAddBtn').textContent = 'Add';
-    $('msCancelEditBtn').classList.add('hidden');
-    $('msFormTitle').textContent = 'Add Master Supplier';
-    renderMasterSupplierTable();
-    populateMasterSupplierDatalist();
-    showToast('Master supplier updated.', 'success');
-  } else {
-    if (masterSuppliers.some(function(m){ return m.id_supplier === idSup; })) {
-      showToast('ID Supplier already exists.', 'error'); return;
-    }
-    showLoading();
-    var { error } = await supabase
-      .from('master_suppliers')
-      .insert({ id_supplier: idSup, nama_supplier: namaSup });
-    hideLoading();
-    if (error) { showToast('Error adding: ' + error.message, 'error'); return; }
-
-    masterSuppliers.push({ id_supplier: idSup, nama_supplier: namaSup, created_at: new Date().toISOString() });
-    masterSuppliers.sort(function(a,b){ return a.nama_supplier.localeCompare(b.nama_supplier); });
-    $('msIdSupplier').value = '';
-    $('msNamaSupplier').value = '';
-    renderMasterSupplierTable();
-    populateMasterSupplierDatalist();
-    showToast('Master supplier added.', 'success');
-  }
-}
-
-async function deleteMasterSupplier(id_supplier) {
-  if (!confirm('Delete master supplier "'+id_supplier+'"? This only removes from the reference list.')) return;
-  showLoading();
-  var { error } = await supabase
-    .from('master_suppliers')
-    .delete()
-    .eq('id_supplier', id_supplier);
-  hideLoading();
-  if (error) { showToast('Error deleting: ' + error.message, 'error'); return; }
-  masterSuppliers = masterSuppliers.filter(function(m){ return m.id_supplier !== id_supplier; });
-  if (msEditTargetId === id_supplier) cancelEditMasterSupplier();
-  else renderMasterSupplierTable();
-  populateMasterSupplierDatalist();
-  showToast('Master supplier deleted.', 'success');
-}
-
-function handleMasterImport(input) {
-  var file = input.files[0]; if (!file) return;
-  if (!window.__canEdit) { showToast('You do not have permission to import.', 'error'); input.value=''; return; }
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var text = e.target.result;
-    var lines = text.split('\n').filter(function(l) { return l.trim(); });
-    if (lines.length < 2) { showToast('CSV file is empty or has no data rows.', 'error'); input.value=''; return; }
-    var delim = detectDelimiter(lines.slice(0, 5));
-    var headers = parseCSVRow(lines[0], delim);
-    var rows = [];
-    for (var i = 1; i < lines.length; i++) { var line=lines[i].trim(); if(line) rows.push(parseCSVRow(line, delim)); }
-    processMasterImport(headers, rows, input);
-  };
-  reader.onerror = function() { showToast('Failed to read file.', 'error'); };
-  reader.readAsText(file);
-}
-
-async function processMasterImport(headers, rows, input) {
-  var hLower = headers.map(function(h){ return h.toString().toLowerCase().trim(); });
-
-  var idColKeys = ['id_supplier','id supplier','kode supplier','kode','id','code','kode_supplier','supplier id'];
-  var namaColKeys = ['nama_supplier','nama supplier','nama','supplier name','company','perusahaan'];
-
-  var idIdx = -1, namaIdx = -1;
-  for (var i = 0; i < hLower.length; i++) {
-    if (idIdx === -1) {
-      for (var j = 0; j < idColKeys.length; j++) {
-        if (hLower[i].indexOf(idColKeys[j]) !== -1) { idIdx = i; break; }
-      }
-    }
-    if (namaIdx === -1 && i !== idIdx) {
-      for (var k = 0; k < namaColKeys.length; k++) {
-        if (hLower[i].indexOf(namaColKeys[k]) !== -1) { namaIdx = i; break; }
-      }
-    }
-    if (idIdx !== -1 && namaIdx !== -1) break;
-  }
-
-  if (idIdx === -1) { showToast('Could not find ID-Supplier column. Expected headers like: ID-Supplier, Kode Supplier, etc.', 'error'); input.value=''; return; }
-  if (namaIdx === -1) { showToast('Could not find Nama Supplier column. Expected headers like: Nama Supplier, Supplier, Nama, etc.', 'error'); input.value=''; return; }
-
-  var batch = [], skipped = 0;
-  rows.forEach(function(row) {
-    var id = (row[idIdx]||'').toString().trim();
-    var nama = (row[namaIdx]||'').toString().trim();
-    if (!id || !nama || !/^\d{7}$/.test(id)) { skipped++; return; }
-    batch.push({ id_supplier: id, nama_supplier: nama });
-  });
-
-  if (!batch.length) { showToast('No valid rows found. Ensure ID-Supplier is 7 digits.', 'warning'); input.value=''; return; }
-
-  showLoading();
-  var { error } = await supabase.from('master_suppliers').upsert(batch, { onConflict: 'id_supplier' });
-  hideLoading();
-  input.value = '';
-  if (error) { showToast('Import failed: ' + error.message, 'error'); return; }
-  await loadMasterSuppliers();
-  renderMasterSupplierTable();
-  populateMasterSupplierDatalist();
-  showToast('Imported ' + batch.length + ' master supplier(s), ' + skipped + ' skipped.', 'success');
-}
-
-function downloadMasterTemplate() {
-  var csv = 'ID-Supplier,Nama Supplier\n1000187,PT Maju Jaya\n1000188,CV Sentosa Abadi\n1000189,UD Berkah Makmur\n';
-  downloadFile(csv, 'template-master-supplier.csv', 'text/csv');
-  showToast('Template downloaded!', 'success');
-}
-
-function exportMasterCSV() {
-  if (!masterSuppliers.length) { showToast('No data to export.', 'warning'); return; }
-  var csv = 'ID-Supplier,Nama Supplier\n';
-  csv += masterSuppliers.map(function(ms) {
-    return csvEsc(ms.id_supplier) + ',' + csvEsc(ms.nama_supplier);
-  }).join('\n');
-  downloadFile(csv, 'master-suppliers.csv', 'text/csv');
-  showToast('CSV exported!', 'success');
 }
 
 // ─── Init ───────────────────────────────────────────────

@@ -125,7 +125,6 @@
             <button onclick="openSummaryModal()" class="toolbar-icon-btn" title="Charts &amp; Summary"><i class="fas fa-chart-pie"></i><span class="inline-sm">Summary</span></button>
             <button onclick="openManageCategories()" id="manageCategoriesBtn" class="toolbar-icon-btn hidden" title="Manage Categories"><i class="fas fa-tags"></i><span class="inline-sm">Categories</span></button>
             <button onclick="openManageUsers()" id="manageUsersBtn" class="toolbar-icon-btn hidden" title="Manage Users"><i class="fas fa-users-cog"></i><span class="inline-sm">Users</span></button>
-            <button onclick="openMasterSupplierModal()" id="masterSupplierBtn" class="toolbar-icon-btn hidden" title="Master Supplier List"><i class="fas fa-list-ul"></i><span class="inline-sm">Master Supplier</span></button>
             <span class="toolbar-divider hidden" id="addSupplierDivider"></span>
             <button onclick="openAddModal()" id="addSupplierBtn" class="toolbar-icon-btn toolbar-icon-btn--accent hidden"><i class="fas fa-plus"></i><span class="inline-sm">Add Supplier</span></button>
           </div>
@@ -362,53 +361,7 @@
     </div>
   </div>
 
-  <!-- Master Supplier Modal -->
-  <div id="masterSupplierModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
-    <div class="modal-content w-full max-w-2xl">
-      <div class="modal-header">
-        <div>
-          <h2>Master Supplier</h2>
-          <p class="text-xs text-gray-400 mt-0.5">Manage the reference list of Supplier ID &amp; Names.</p>
-        </div>
-        <button onclick="closeMasterSupplierModal()" class="modal-close"><i class="fas fa-times"></i></button>
-      </div>
-      <div class="modal-body">
-        <div class="flex items-center gap-2 mb-4 flex-wrap">
-          <input type="file" id="msImportFile" accept=".csv" style="display:none" onchange="handleMasterImport(this)">
-          <button onclick="document.getElementById('msImportFile').click()" class="btn btn-sm bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 text-xs font-medium transition" title="Import CSV"><i class="fas fa-file-import mr-1"></i>Import CSV</button>
-          <button onclick="downloadMasterTemplate()" class="btn btn-sm bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium transition" title="Download Template"><i class="fas fa-download mr-1"></i>Template</button>
-          <button onclick="exportMasterCSV()" class="btn btn-sm bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium transition" title="Export CSV"><i class="fas fa-file-csv mr-1"></i>Export</button>
-        </div>
-        <div class="overflow-x-auto mb-4">
-          <table class="w-full text-sm">
-            <thead><tr class="bg-gray-50 border-b border-gray-200">
-              <th class="text-left px-3 py-2 font-semibold text-gray-600">ID Supplier</th>
-              <th class="text-left px-3 py-2 font-semibold text-gray-600">Nama Supplier</th>
-              <th class="text-center px-3 py-2 font-semibold text-gray-600">Actions</th>
-            </tr></thead>
-            <tbody id="msTableBody"><tr><td colspan="3" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr></tbody>
-          </table>
-        </div>
-        <div class="pagination-bar" id="msPaginationBar" style="display:none">
-          <span class="pagination-info" id="msPaginationInfo">Showing 0 of 0</span>
-          <div class="flex gap-1" id="msPaginationButtons"></div>
-        </div>
-        <div class="border-t border-gray-200 pt-4 mt-2">
-          <h3 class="text-sm font-semibold mb-3" id="msFormTitle">Add Master Supplier</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-            <input type="text" id="msIdSupplier" class="form-input" placeholder="ID Supplier (7 digit)" maxlength="7" pattern="\d{7}">
-            <input type="text" id="msNamaSupplier" class="form-input" placeholder="Nama Supplier">
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="addMasterSupplier()" id="msAddBtn" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-1"></i>Add</button>
-            <button onclick="cancelEditMasterSupplier()" id="msCancelEditBtn" class="btn btn-ghost btn-sm hidden"><i class="fas fa-times mr-1"></i>Cancel Edit</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
 <script src="regions_id.js?v=2"></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
