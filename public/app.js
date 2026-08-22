@@ -492,7 +492,7 @@ function render() {
       '<td class="px-4 py-3 font-medium" data-label="Company">'+escHtml(s.companyName)+'</td>' +
       '<td class="px-4 py-3 text-gray-600" data-label="Contact">'+escHtml(s.contactPerson)+(s.contactPerson2?'<br>'+escHtml(s.contactPerson2):'')+'</td>' +
       '<td class="px-4 py-3 text-gray-600 hidden md:table-cell" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br>'+escHtml(s.phone2):'')+'</td>' +
-      '<td class="px-4 py-3 text-gray-600 hidden md:table-cell max-w-[260px]" data-label="Address">'+(s.address?'<span class="block truncate" title="'+escHtml(s.address)+'">'+escHtml(s.address)+'</span>':'\u2014')+'</td>' +
+      '<td class="px-4 py-3 text-gray-600 max-w-[260px]" data-label="Address">'+(s.address?'<span class="block truncate" title="'+escHtml(s.address)+'">'+escHtml(s.address)+'</span>':'\u2014')+'</td>' +
       '<td class="px-4 py-3" data-label="Categories">'+cats+'</td>' +
       '<td class="px-4 py-3" data-label="Products">'+prods+'</td>' +
       '<td class="px-4 py-3 text-center md:text-center" data-label="Status"><span class="text-xs font-medium px-2 py-1 rounded-full '+txnCls+'">'+txnDate+'</span></td>' +
