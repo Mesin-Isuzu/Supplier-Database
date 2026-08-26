@@ -43,6 +43,9 @@
 }
 
 /* ─── Base ──────────────────────────────────── */
+html {
+  scrollbar-gutter: stable;
+}
 body {
   font-family: var(--font-body);
   background: linear-gradient(rgba(244,246,249,0.93), rgba(244,246,249,0.96)), url('bg.webp') center / cover no-repeat fixed;
@@ -333,7 +336,6 @@ body {
   letter-spacing: 0.04em;
   text-align: left;
   border-bottom: 1px solid var(--color-border);
-  white-space: nowrap;
   user-select: none;
 }
 .data-table thead th.sortable {
@@ -341,6 +343,25 @@ body {
 }
 .data-table thead th.sortable:hover {
   color: var(--color-primary);
+}
+
+/* Desktop: kolom stabil antar halaman (anti-jitter lebar) */
+@media (min-width: 768px) {
+  .data-table {
+    table-layout: fixed;
+    min-width: 1150px;
+  }
+  .data-table th, .data-table td { box-sizing: border-box; }
+  .data-table thead th:nth-child(1) { width: 8%; }
+  .data-table thead th:nth-child(2) { width: 12%; }
+  .data-table thead th:nth-child(3) { width: 9%; }
+  .data-table thead th:nth-child(4) { width: 10%; }
+  .data-table thead th:nth-child(5) { width: 14%; }
+  .data-table thead th:nth-child(6) { width: 11%; }
+  .data-table thead th:nth-child(7) { width: 11%; }
+  .data-table thead th:nth-child(8) { width: 11%; }
+  .data-table thead th:nth-child(9),
+  .data-table tbody td:nth-child(9) { width: 14%; white-space: nowrap; }
 }
 
 /* Responsive kolom tabel & label toolbar (hindari konflik .hidden !important) */
@@ -367,6 +388,7 @@ body {
 .data-table tbody td {
   padding: 12px 16px;
   vertical-align: middle;
+  overflow-wrap: anywhere;
 }
 
 .data-table .cell-company {
@@ -839,6 +861,8 @@ textarea.form-input {
   font-size: 0.72rem;
   margin: 2px;
   font-weight: 500;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .category-badge {
@@ -848,6 +872,8 @@ textarea.form-input {
   font-size: 0.68rem;
   font-weight: 500;
   margin: 1px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 /* ─── Animations ────────────────────────────── */
@@ -908,9 +934,7 @@ textarea.form-input {
   display: inline-block;
 }
 
-@media (max-width: 768px) {
-  .table-wrap { overflow-x: auto; }
-}
+.table-wrap { overflow-x: auto; }
 
 /* ─── Dark Theme ─────────────────────────────── */
 [data-theme="dark"] {

@@ -479,9 +479,11 @@ function render() {
     var txnDate = s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'2-digit'}) : '—';
     var txnCls = s.lastTransactionDate ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500';
 
-    var actions = '<button onclick="openDetailModal('+s.id+')" title="View" class="text-indigo-600 hover:text-indigo-800 mx-1"><i class="fas fa-eye"></i></button>';
-    if (window.__canEdit)   actions += '<button onclick="openEditModal('+s.id+')" title="Edit" class="text-yellow-500 hover:text-yellow-700 mx-1"><i class="fas fa-edit"></i></button>';
-    if (window.__canDelete) actions += '<button onclick="openDeleteModal('+s.id+')" title="Delete" class="text-red-500 hover:text-red-700 mx-1"><i class="fas fa-trash"></i></button>';
+    var actions = '<div class="flex items-center justify-center gap-0.5 whitespace-nowrap">' +
+      '<button onclick="openDetailModal('+s.id+')" title="View" class="text-indigo-600 hover:text-indigo-800 p-1"><i class="fas fa-eye"></i></button>';
+    if (window.__canEdit)   actions += '<button onclick="openEditModal('+s.id+')" title="Edit" class="text-yellow-500 hover:text-yellow-700 p-1"><i class="fas fa-edit"></i></button>';
+    if (window.__canDelete) actions += '<button onclick="openDeleteModal('+s.id+')" title="Delete" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>';
+    actions += '</div>';
 
     return '<tr class="table-row-hover border-b border-gray-100">' +
       '<td class="px-4 py-3 font-mono text-sm text-indigo-600" data-label="ID">'+(s.idSupplier ? escHtml(s.idSupplier) : '\u2014')+'</td>' +
