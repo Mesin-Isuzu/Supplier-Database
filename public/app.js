@@ -1834,7 +1834,7 @@ function renderSummaryCharts() {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: { size: 11 }, color: '#4b5563' } }
+        legend: { display: false }
       }
     }
   });
