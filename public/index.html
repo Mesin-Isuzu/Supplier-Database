@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=7">
   <style>
     @font-face {
       font-family: 'Usuzi';
@@ -34,21 +34,21 @@
 
   <!-- Login Page -->
   <div id="loginPage" class="login-page hidden fixed inset-0 z-50 items-center justify-center login-page-bg">
-    <div class="login-card w-full max-w-md p-8 mx-4 fade-in rounded-2xl">
+    <div class="login-card w-full max-w-md p-8 mx-4 rounded-2xl">
       <div class="text-center mb-6">
         <div class="mx-auto mb-4 flex items-center justify-center">
-          <img src="logo.png" alt="Isuzu Logo" class="login-logo h-14 mx-auto" style="filter: invert(16%) sepia(100%) saturate(7414%) hue-rotate(355deg) brightness(94%) contrast(108%);">
+          <img src="logo.png" alt="Isuzu Logo" class="login-logo h-14 mx-auto" style="filter: brightness(0) invert(1);">
         </div>
-        <h1 class="login-title font-bold text-gray-900" style="font-family: 'Usuzi', sans-serif;">mesin isuzu indonesia</h1>
+        <h1 class="login-title font-bold" style="font-family: 'Usuzi', sans-serif;">mesin isuzu indonesia</h1>
         <p class="login-subtitle mt-1">Sign in to your account</p>
       </div>
       <div class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Username or Email</label>
+          <label class="block text-sm font-medium mb-1" style="color: rgba(255,255,255,0.85);">Username or Email</label>
           <input type="text" id="loginUsername" class="login-input" placeholder="Enter username or email" onkeydown="if(event.key==='Enter')handleLogin()">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <label class="block text-sm font-medium mb-1" style="color: rgba(255,255,255,0.85);">Password</label>
           <input type="password" id="loginPassword" class="login-input" placeholder="Enter password" onkeydown="if(event.key==='Enter')handleLogin()">
         </div>
         <div id="loginError" class="login-error hidden"></div>
@@ -174,7 +174,7 @@
       <div class="modal-body space-y-4">
         <input type="hidden" id="editId">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div><label class="form-label">Company Name <span class="required">*</span></label><input type="text" id="fCompanyName" class="form-input" list="masterSupplierList" autocomplete="off" placeholder="Pilih atau ketik nama supplier" oninput="onSupplierNameInput()"><datalist id="masterSupplierList"></datalist><input type="hidden" id="fIdSupplier"><span id="fIdSupplierDisplay" class="text-xs text-indigo-600 font-mono block mt-1 hidden"></span></div>
+          <div><label class="form-label">Company Name <span class="required">*</span></label><input type="text" id="fCompanyName" class="form-input" list="masterSupplierList" autocomplete="off" placeholder="Pilih atau ketik nama supplier" oninput="onSupplierNameInput()"><datalist id="masterSupplierList"></datalist><input type="hidden" id="fIdSupplier"><span id="fIdSupplierDisplay" class="text-xs text-blue-600 font-mono block mt-1 hidden"></span></div>
           <div><label class="form-label">Contact Person 1 <span class="required">*</span></label><input type="text" id="fContactPerson" class="form-input"></div>
           <div><label class="form-label">Phone 1 <span class="required">*</span></label><input type="text" id="fPhone" class="form-input"><span id="fPhoneError" class="field-error"></span></div>
           <div><label class="form-label">Email 1</label><input type="email" id="fEmail" class="form-input"></div>
@@ -199,7 +199,7 @@
               <tbody id="productsList"></tbody>
             </table>
           </div>
-          <button type="button" onclick="addProductField()" class="mt-2 text-sm text-indigo-600 hover:text-indigo-800"><i class="fas fa-plus-circle mr-1"></i>Add Product</button>
+          <button type="button" onclick="addProductField()" class="mt-2 text-sm text-blue-600 hover:text-blue-800"><i class="fas fa-plus-circle mr-1"></i>Add Product</button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div><label class="form-label mb-2">Last Transaction Date</label><input type="date" id="fTransactionDate" class="form-input"></div>
@@ -252,7 +252,7 @@
       </div>
       <div class="modal-body">
         <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
-          <h3 class="text-sm font-semibold mb-3"><i class="fas fa-user-plus mr-1.5 text-indigo-600"></i>Add New User</h3>
+          <h3 class="text-sm font-semibold mb-3"><i class="fas fa-user-plus mr-1.5 text-blue-600"></i>Add New User</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             <input type="text" id="fNewUserUsername" class="form-input" placeholder="Username">
             <input type="email" id="fNewUserEmail" class="form-input" placeholder="Email">
@@ -318,7 +318,7 @@
       <div class="modal-body">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <h3 class="text-sm font-semibold text-gray-600 mb-3"><i class="fas fa-tags mr-1.5 text-indigo-500"></i>Composition by Category</h3>
+            <h3 class="text-sm font-semibold text-gray-600 mb-3"><i class="fas fa-tags mr-1.5 text-blue-600"></i>Composition by Category</h3>
             <div class="relative" style="height:280px"><canvas id="chartCategory"></canvas></div>
           </div>
           <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
@@ -342,7 +342,7 @@
   <div id="auditModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
     <div class="modal-content w-full max-w-3xl">
       <div class="modal-header">
-        <h2><i class="fas fa-history mr-2 text-indigo-600"></i>Audit Log</h2>
+        <h2><i class="fas fa-history mr-2 text-blue-600"></i>Audit Log</h2>
         <button onclick="closeAuditModal()" class="modal-close"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body">
@@ -362,6 +362,6 @@
   </div>
 
 <script src="regions_id.js?v=2"></script>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

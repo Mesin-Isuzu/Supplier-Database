@@ -1,4 +1,4 @@
-var SUPABASE_URL = 'https://fjlrnizploxubxkotrin.supabase.co';
+﻿var SUPABASE_URL = 'https://fjlrnizploxubxkotrin.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqbHJuaXpwbG94dWJ4a290cmluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMTcyNDUsImV4cCI6MjA5Nzg5MzI0NX0.PHjQvOh7tbObp-bYZmGDD8unI-fLS2U64rgduVFSZ7k';
 
 var supabase = null;
@@ -20,7 +20,7 @@ async function initSupabase() {
   return _supabaseInitPromise;
 }
 
-// ─── Helpers ────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function $(id) { return document.getElementById(id); }
 function escHtml(s) {
   if (!s) return '';
@@ -61,7 +61,7 @@ async function downloadFile(c, f, m) {
   a.href = u; a.download = f; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
 }
 
-// ─── State ─────────────────────────────────────────────
+// â”€â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var suppliers = [], currentPage = 1, pageSize = 10;
 var sortColumn = 'last_transaction_date', sortAsc = false;
 var deleteTargetId = null;
@@ -77,7 +77,7 @@ var CATEGORY_PALETTE = [
 ];
 var paletteIdx = 0;
 
-// ─── Field Mapper (camelCase ↔ snake_case) ───────────────
+// â”€â”€â”€ Field Mapper (camelCase â†” snake_case) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function toSupabase(s) {
   return {
     id_supplier:      s.idSupplier    || '',
@@ -126,7 +126,7 @@ function fromSupabase(r) {
   };
 }
 
-// ─── Auth ───────────────────────────────────────────────
+// â”€â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function handleLogin() {
   if (!supabase) {
     $('loginError').textContent = 'Supabase is still loading. Please wait...';
@@ -298,7 +298,7 @@ function updateNavbar() {
   $('logoutBtn').classList.remove('hidden');
 }
 
-// ─── Permissions ─────────────────────────────────────
+// â”€â”€â”€ Permissions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function applyPermissions() {
   var role = currentUser ? currentUser.role : 'Viewer';
@@ -320,7 +320,7 @@ function applyPermissions() {
   show('addSupplierDivider',  canEdit);
 }
 
-// ─── Load Data from Supabase ────────────────────────────
+// â”€â”€â”€ Load Data from Supabase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function loadSuppliers() {
   var { data, error } = await supabase
     .from('suppliers')
@@ -392,7 +392,7 @@ function populateYearFilter() {
   });
 }
 
-// ─── Render Table ───────────────────────────────────────
+// â”€â”€â”€ Render Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function getFilteredSorted() {
   var q   = ($('searchInput').value || '').toLowerCase();
   var yr  = $('filterYear').value;
@@ -476,17 +476,17 @@ function render() {
     }).join('');
     if ((s.products||[]).length > 3) prods += '<span class="product-tag">+'+(s.products.length-3)+' more</span>';
 
-    var txnDate = s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'2-digit'}) : '—';
+    var txnDate = s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'2-digit'}) : 'â€”';
     var txnCls = s.lastTransactionDate ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500';
 
     var actions = '<div class="flex items-center justify-center gap-0.5 whitespace-nowrap">' +
-      '<button onclick="openDetailModal('+s.id+')" title="View" class="text-indigo-600 hover:text-indigo-800 p-1"><i class="fas fa-eye"></i></button>';
+      '<button onclick="openDetailModal('+s.id+')" title="View" class="text-blue-600 hover:text-blue-800 p-1"><i class="fas fa-eye"></i></button>';
     if (window.__canEdit)   actions += '<button onclick="openEditModal('+s.id+')" title="Edit" class="text-yellow-500 hover:text-yellow-700 p-1"><i class="fas fa-edit"></i></button>';
     if (window.__canDelete) actions += '<button onclick="openDeleteModal('+s.id+')" title="Delete" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>';
     actions += '</div>';
 
     return '<tr class="table-row-hover border-b border-gray-100">' +
-      '<td class="px-4 py-3 font-mono text-sm text-indigo-600" data-label="ID">'+(s.idSupplier ? escHtml(s.idSupplier) : '\u2014')+'</td>' +
+      '<td class="px-4 py-3 font-mono text-sm text-blue-600" data-label="ID">'+(s.idSupplier ? escHtml(s.idSupplier) : '\u2014')+'</td>' +
       '<td class="px-4 py-3 font-medium" data-label="Company">'+escHtml(s.companyName)+'</td>' +
       '<td class="px-4 py-3 text-gray-600" data-label="Contact">'+escHtml(s.contactPerson)+(s.contactPerson2?'<br>'+escHtml(s.contactPerson2):'')+'</td>' +
       '<td class="px-4 py-3 text-gray-600 col-md" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br>'+escHtml(s.phone2):'')+'</td>' +
@@ -502,17 +502,17 @@ function render() {
 }
 
 function renderPagination(total, pages) {
-  $('paginationInfo').textContent = 'Showing ' + Math.min(total, (currentPage-1)*pageSize+1) + '–' + Math.min(total, currentPage*pageSize) + ' of ' + total;
+  $('paginationInfo').textContent = 'Showing ' + Math.min(total, (currentPage-1)*pageSize+1) + 'â€“' + Math.min(total, currentPage*pageSize) + ' of ' + total;
   var btns = '';
-  btns += '<button class="pagination-btn rounded-l-lg" onclick="goPage('+(currentPage-1)+')" '+(currentPage===1?'disabled':'')+'>‹</button>';
+  btns += '<button class="pagination-btn rounded-l-lg" onclick="goPage('+(currentPage-1)+')" '+(currentPage===1?'disabled':'')+'>â€¹</button>';
   for (var i = 1; i <= pages; i++) {
     if (pages > 7 && Math.abs(i - currentPage) > 2 && i !== 1 && i !== pages) {
-      if (i === currentPage - 3 || i === currentPage + 3) btns += '<button class="pagination-btn" disabled>…</button>';
+      if (i === currentPage - 3 || i === currentPage + 3) btns += '<button class="pagination-btn" disabled>â€¦</button>';
       continue;
     }
     btns += '<button class="pagination-btn'+(i===currentPage?' active':'')+'" onclick="goPage('+i+')">'+i+'</button>';
   }
-  btns += '<button class="pagination-btn rounded-r-lg" onclick="goPage('+(currentPage+1)+')" '+(currentPage===pages?'disabled':'')+'>›</button>';
+  btns += '<button class="pagination-btn rounded-r-lg" onclick="goPage('+(currentPage+1)+')" '+(currentPage===pages?'disabled':'')+'>â€º</button>';
   $('paginationButtons').innerHTML = btns;
 }
 
@@ -537,7 +537,7 @@ function sortBy(col) {
   render();
 }
 
-// ─── Add / Edit Supplier ────────────────────────────────
+// â”€â”€â”€ Add / Edit Supplier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function openAddModal() {
   $('editId').value = '';
   $('modalTitle').textContent = 'Add Supplier';
@@ -846,7 +846,7 @@ async function saveSupplier() {
   showToast(editId ? 'Supplier updated.' : 'Supplier added.', 'success');
 }
 
-// ─── Delete Supplier ────────────────────────────────────
+// â”€â”€â”€ Delete Supplier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function openDeleteModal(id) {
   deleteTargetId = id;
   $('deleteModal').classList.remove('hidden');
@@ -876,7 +876,7 @@ async function confirmDelete() {
   showToast('Supplier deleted.', 'success');
 }
 
-// ─── Detail Modal ───────────────────────────────────────
+// â”€â”€â”€ Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function openDetailModal(id) {
   var s = suppliers.find(function(x){ return x.id === id; });
   if (!s) return;
@@ -936,15 +936,15 @@ function openDetailModal(id) {
 
   var h = '<div class="p-6 border-b border-gray-200 flex items-center justify-between">' +
     '<div><h2 class="text-lg font-bold">'+escHtml(s.companyName)+'</h2>' +
-    (s.idSupplier ? '<span class="text-sm text-indigo-600 font-mono">ID: '+escHtml(s.idSupplier)+'</span>' : '') + '</div>' +
+    (s.idSupplier ? '<span class="text-sm text-blue-600 font-mono">ID: '+escHtml(s.idSupplier)+'</span>' : '') + '</div>' +
     '<button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 text-xl"><i class="fas fa-times"></i></button>' +
     '</div><div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">' +
     '<div class="space-y-3">' +
-    '<div><div class="text-xs text-gray-400 uppercase mb-1">Contact Person 1</div><div class="font-medium">'+escHtml(s.contactPerson)+'</div><div class="text-sm text-gray-500">'+escHtml(s.phone)+'</div>'+(s.email?'<a href="mailto:'+escHtml(s.email)+'" class="text-indigo-600 hover:underline text-sm">'+escHtml(s.email)+'</a>':'')+'</div>' +
-    (s.contactPerson2?'<div><div class="text-xs text-gray-400 uppercase mb-1">Contact Person 2</div><div class="font-medium">'+escHtml(s.contactPerson2)+'</div><div class="text-sm text-gray-500">'+escHtml(s.phone2||'')+'</div>'+(s.email2?'<a href="mailto:'+escHtml(s.email2)+'" class="text-indigo-600 hover:underline text-sm">'+escHtml(s.email2)+'</a>':'')+'</div>':'') +
-    (s.website?'<div><div class="text-xs text-gray-400 uppercase mb-1">Website</div><a href="'+escHtml(s.website)+'" target="_blank" class="text-indigo-600 hover:underline">'+escHtml(s.website)+'</a></div>':'') +
+    '<div><div class="text-xs text-gray-400 uppercase mb-1">Contact Person 1</div><div class="font-medium">'+escHtml(s.contactPerson)+'</div><div class="text-sm text-gray-500">'+escHtml(s.phone)+'</div>'+(s.email?'<a href="mailto:'+escHtml(s.email)+'" class="text-blue-600 hover:underline text-sm">'+escHtml(s.email)+'</a>':'')+'</div>' +
+    (s.contactPerson2?'<div><div class="text-xs text-gray-400 uppercase mb-1">Contact Person 2</div><div class="font-medium">'+escHtml(s.contactPerson2)+'</div><div class="text-sm text-gray-500">'+escHtml(s.phone2||'')+'</div>'+(s.email2?'<a href="mailto:'+escHtml(s.email2)+'" class="text-blue-600 hover:underline text-sm">'+escHtml(s.email2)+'</a>':'')+'</div>':'') +
+    (s.website?'<div><div class="text-xs text-gray-400 uppercase mb-1">Website</div><a href="'+escHtml(s.website)+'" target="_blank" class="text-blue-600 hover:underline">'+escHtml(s.website)+'</a></div>':'') +
     (s.address?'<div><div class="text-xs text-gray-400 uppercase mb-1">Address</div><div>'+escHtml(s.address)+'</div></div>':'') +
-    '<div><div class="text-xs text-gray-400 uppercase mb-1">Last Transaction</div><div class="font-medium">'+(s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID') : '—')+'</div></div>' +
+    '<div><div class="text-xs text-gray-400 uppercase mb-1">Last Transaction</div><div class="font-medium">'+(s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID') : 'â€”')+'</div></div>' +
     '<div><div class="text-xs text-gray-400 uppercase mb-1">Categories</div>'+cats+'</div>' +
     (s.notes?'<div><div class="text-xs text-gray-400 uppercase mb-1">Notes</div><div class="text-sm text-gray-600">'+escHtml(s.notes)+'</div></div>':'') +
     auditHTML +
@@ -954,7 +954,7 @@ function openDetailModal(id) {
     (prodHTML || '<div class="text-sm text-gray-400">No products listed.</div>') +
     '</div></div>' +
     '<div class="p-6 border-t border-gray-200 flex justify-end gap-3">';
-  if (window.__canEdit) h += '<button onclick="closeDetailModal();openEditModal('+s.id+')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"><i class="fas fa-edit mr-1"></i>Edit</button>';
+  if (window.__canEdit) h += '<button onclick="closeDetailModal();openEditModal('+s.id+')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"><i class="fas fa-edit mr-1"></i>Edit</button>';
   if (currentUser && currentUser.role === 'Admin') h += '<button onclick="openAuditLogModal('+s.id+')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition"><i class="fas fa-history mr-1"></i>Audit Log</button>';
   h += '</div>';
   $('detailContent').innerHTML = h;
@@ -967,7 +967,7 @@ function closeDetailModal() {
   $('detailModal').classList.remove('flex');
 }
 
-// ─── Image Lightbox ─────────────────────────────────────
+// â”€â”€â”€ Image Lightbox â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function showImageLightbox(src, name) {
   $('lightboxImage').src = src;
   $('lightboxCaption').textContent = name || '';
@@ -987,7 +987,7 @@ function imgError(el) {
   el.parentNode.replaceChild(p, el);
 }
 
-// ─── Product Fields in Modal ────────────────────────────
+// â”€â”€â”€ Product Fields in Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function addProductField(v) {
   var tr  = document.createElement('tr');
   var nm  = (typeof v==='object'&&v!==null) ? (v.name||'')  : (v||'');
@@ -1004,9 +1004,9 @@ function addProductField(v) {
   });
 
   tr.innerHTML =
-    '<td class="px-2 py-2"><input type="text" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" placeholder="Product name" value="'+escHtml(nm)+'"></td>' +
-    '<td class="px-2 py-2"><select class="product-cat-select w-full border border-gray-300 rounded px-1 py-1 text-xs focus:ring-2 focus:ring-indigo-400 outline-none">'+catOpts+'</select></td>' +
-    '<td class="px-2 py-2"><div class="flex items-center gap-1"><input type="text" class="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" placeholder="Image URL" value="'+escHtml(im)+'" oninput="updateProductPreview(this)"><input type="file" accept="image/*" style="display:none" class="product-file-input" onchange="handleProductImageUpload(this)"><button type="button" onclick="this.previousElementSibling.click()" class="text-xs text-indigo-600 hover:text-indigo-800" title="Upload"><i class="fas fa-upload"></i></button></div></td>' +
+    '<td class="px-2 py-2"><input type="text" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Product name" value="'+escHtml(nm)+'"></td>' +
+    '<td class="px-2 py-2"><select class="product-cat-select w-full border border-gray-300 rounded px-1 py-1 text-xs focus:ring-2 focus:ring-blue-400 outline-none">'+catOpts+'</select></td>' +
+    '<td class="px-2 py-2"><div class="flex items-center gap-1"><input type="text" class="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Image URL" value="'+escHtml(im)+'" oninput="updateProductPreview(this)"><input type="file" accept="image/*" style="display:none" class="product-file-input" onchange="handleProductImageUpload(this)"><button type="button" onclick="this.previousElementSibling.click()" class="text-xs text-blue-600 hover:text-blue-800" title="Upload"><i class="fas fa-upload"></i></button></div></td>' +
     '<td class="px-2 py-2 text-center"><div class="product-img-preview" style="width:40px;height:40px;border-radius:4px;overflow:hidden;border:1px solid #e2e8f0;margin:0 auto;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#94a3b8">'+prev+'</div></td>' +
     '<td class="px-2 py-2 text-center"><button type="button" onclick="this.closest(\'tr\').remove()" class="text-gray-400 hover:text-red-500 transition"><i class="fas fa-times-circle"></i></button></td>';
   $('productsList').appendChild(tr);
@@ -1020,7 +1020,7 @@ async function handleProductImageUpload(input) {
   
   var originalPreview = preview ? preview.innerHTML : '<i class="fas fa-image"></i>';
   if (preview) {
-    preview.innerHTML = '<i class="fas fa-spinner fa-spin text-indigo-600"></i>';
+    preview.innerHTML = '<i class="fas fa-spinner fa-spin text-blue-600"></i>';
   }
 
   var ext = file.name.split('.').pop();
@@ -1061,7 +1061,7 @@ function updateProductPreview(input) {
   else preview.innerHTML = '<i class="fas fa-image"></i>';
 }
 
-// ─── Import / Export ────────────────────────────────────
+// â”€â”€â”€ Import / Export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function handleImport(input) {
   var file = input.files[0]; if (!file) return;
   if (!window.__canEdit) { showToast('You do not have permission to import.', 'error'); input.value=''; return; }
@@ -1291,7 +1291,7 @@ async function downloadTemplate() {
   showToast('Template downloaded!','success');
 }
 
-// ─── Theme ──────────────────────────────────────────────
+// â”€â”€â”€ Theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function initTheme() {
   var saved = localStorage.getItem('theme');
   var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -1311,7 +1311,7 @@ function toggleTheme() {
   applyTheme(current === 'dark' ? 'light' : 'dark');
 }
 
-// ─── Manage Users ───────────────────────────────────────
+// â”€â”€â”€ Manage Users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function openManageUsers() {
   $('userModal').classList.remove('hidden');
   $('userModal').classList.add('flex');
@@ -1334,12 +1334,12 @@ async function openManageUsers() {
     if (isAdmin && !isSelf) {
       roleSelect =
         '<div class="flex items-center gap-1">' +
-        '<select id="rolesel-'+u.id+'" class="border border-gray-200 rounded px-1 py-0.5 text-xs focus:ring-2 focus:ring-indigo-400 outline-none">' +
+        '<select id="rolesel-'+u.id+'" class="border border-gray-200 rounded px-1 py-0.5 text-xs focus:ring-2 focus:ring-blue-400 outline-none">' +
         '<option value="Admin"'+(u.role==='Admin'?' selected':'')+'>Admin</option>' +
         '<option value="Editor"'+(u.role==='Editor'?' selected':'')+'>Editor</option>' +
         '<option value="Viewer"'+(u.role==='Viewer'?' selected':'')+'>Viewer</option>' +
         '</select>' +
-        '<button onclick="saveUserRole(\''+u.id+'\')" class="text-xs text-indigo-600 hover:text-indigo-800 px-2 py-0.5 rounded border border-indigo-200 hover:bg-indigo-50 transition" title="Save role"><i class="fas fa-save"></i></button>' +
+        '<button onclick="saveUserRole(\''+u.id+'\')" class="text-xs text-blue-600 hover:text-blue-800 px-2 py-0.5 rounded border border-blue-200 hover:bg-blue-50 transition" title="Save role"><i class="fas fa-save"></i></button>' +
         '</div>';
     } else {
       roleSelect = '<span class="text-xs px-2 py-0.5 rounded-full '+(rc[u.role]||'bg-gray-100 text-gray-700')+'">' + u.role + (isSelf?' <span class="opacity-60">(you)</span>':'') + '</span>';
@@ -1347,7 +1347,7 @@ async function openManageUsers() {
 
     return '<tr class="border-b border-gray-100 table-row-hover" id="userrow-'+u.id+'">' +
       '<td class="px-3 py-2 text-sm font-medium">' + escHtml(u.username) + '</td>' +
-      '<td class="px-3 py-2 text-sm text-gray-500">' + escHtml(u.email || '—') + '</td>' +
+      '<td class="px-3 py-2 text-sm text-gray-500">' + escHtml(u.email || 'â€”') + '</td>' +
       '<td class="px-3 py-2" id="userrole-'+u.id+'">' + roleSelect + '</td>' +
       '<td class="px-3 py-2 text-center">' +
         (isAdmin && !isSelf ? '<button onclick="deleteUser(\''+u.id+'\')" class="text-xs text-red-500 hover:text-red-700 px-2 py-0.5 rounded border border-red-200 hover:bg-red-50 transition" title="Delete user"><i class="fas fa-trash"></i></button>' : '') +
@@ -1423,7 +1423,7 @@ async function addUser() {
       return;
     }
 
-    // RPC admin_create_user — GoTrue Admin API via pg_net (no rate limit)
+    // RPC admin_create_user â€” GoTrue Admin API via pg_net (no rate limit)
     var { data: rpcData, error: rpcError } = await supabase.rpc('admin_create_user', {
       user_email: email,
       user_password: password,
@@ -1457,7 +1457,7 @@ function closeUserModal() {
   $('userModal').classList.remove('flex');
 }
 
-// ─── Manage Categories ──────────────────────────────────
+// â”€â”€â”€ Manage Categories â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var ALL_CATEGORIES = [];
 
 async function openManageCategories() {
@@ -1548,7 +1548,7 @@ async function deleteCategory(id) {
   showToast('Category deleted.', 'success');
 }
 
-// ─── Realtime Subscriptions ─────────────────────────────
+// â”€â”€â”€ Realtime Subscriptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var _realtimeChannel = null;
 
 function setupRealtime() {
@@ -1613,7 +1613,7 @@ function teardownRealtime() {
   }
 }
 
-// ─── Summary Charts ────────────────────────────────────
+// â”€â”€â”€ Summary Charts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var _summaryCharts = {};
 
 function openSummaryModal() {
@@ -1629,7 +1629,7 @@ function closeSummaryModal() {
   _summaryCharts = {};
 }
 
-// ─── Region (Kabupaten/Kota) Classification ──────────────
+// â”€â”€â”€ Region (Kabupaten/Kota) Classification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var _regionIndex = null;
 
 function _regionKey(name) {
@@ -1727,7 +1727,7 @@ function cityFromAddress(address) {
   return null;
 }
 
-// ─── Reverse Geocoding ───────────────────────────────────
+// â”€â”€â”€ Reverse Geocoding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var _geoCacheKey = 'summary_revgeo_v1';
 
 function _geoCache() {
@@ -1813,7 +1813,7 @@ function renderSummaryCharts() {
     '#65a30d','#ea580c','#9333ea','#0284c7','#16a34a','#ca8a04','#e11d48'
   ];
 
-  // ── 1. Chart by Category ──
+  // â”€â”€ 1. Chart by Category â”€â”€
   var catCount = {};
   suppliers.forEach(function(s) {
     (s.categories || []).forEach(function(c) {
@@ -1839,7 +1839,7 @@ function renderSummaryCharts() {
     }
   });
 
-  // ── 2. Chart by Last Transaction Month-Year ──
+  // â”€â”€ 2. Chart by Last Transaction Month-Year â”€â”€
   var monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   var monthYearData = [];
   suppliers.forEach(function(s) {
@@ -1889,10 +1889,10 @@ function renderSummaryCharts() {
     }
   });
 
-  // ── 3. Chart by Location (Top 10 kabupaten/kota) ──
+  // â”€â”€ 3. Chart by Location (Top 10 kabupaten/kota) â”€â”€
   renderLocationChart();
 
-  // ── 4. Chart by Products (Top 10) ──
+  // â”€â”€ 4. Chart by Products (Top 10) â”€â”€
   var prodCount = {};
   suppliers.forEach(function(s) {
     (s.products || []).forEach(function(p) {
@@ -1933,7 +1933,7 @@ async function renderLocationChart() {
   var loadingEl = $('locChartLoading');
   var canvasEl = $('chartLocation');
   if (loadingEl) {
-    loadingEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memuat lokasi…';
+    loadingEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memuat lokasiâ€¦';
     loadingEl.classList.remove('hidden');
     loadingEl.classList.add('flex');
   }
@@ -2007,7 +2007,7 @@ async function renderLocationChart() {
   });
 }
 
-// ─── Audit Log ─────────────────────────────────────────────
+// â”€â”€â”€ Audit Log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function openAuditLogModal(supplierId) {
   closeDetailModal();
   $('auditModal').classList.remove('hidden');
@@ -2027,7 +2027,7 @@ async function openAuditLogModal(supplierId) {
     var changesHtml = '';
     if (log.action === 'UPDATE' && log.old_data && log.new_data) {
       var diff = getJsonDiff(log.old_data, log.new_data);
-      changesHtml = '<button onclick="var el=this.nextElementSibling;el.classList.toggle(\'hidden\')" class="text-xs text-indigo-600 hover:underline">' + diff.length + ' change(s)</button>' +
+      changesHtml = '<button onclick="var el=this.nextElementSibling;el.classList.toggle(\'hidden\')" class="text-xs text-blue-600 hover:underline">' + diff.length + ' change(s)</button>' +
         '<pre class="hidden mt-1 text-xs bg-gray-50 p-2 rounded max-h-32 overflow-auto whitespace-pre-wrap">' + escHtml(JSON.stringify(diff, null, 2)) + '</pre>';
     } else if (log.action === 'INSERT') {
       changesHtml = '<span class="text-xs text-gray-400">Record created</span>';
@@ -2059,7 +2059,7 @@ function closeAuditModal() {
   $('auditModal').classList.remove('flex');
 }
 
-// ─── Master Supplier (referensi untuk autocomplete form) ──
+// â”€â”€â”€ Master Supplier (referensi untuk autocomplete form) â”€â”€
 
 async function loadMasterSuppliers() {
   var { data, error } = await supabase
@@ -2081,7 +2081,7 @@ function populateMasterSupplierDatalist() {
   });
 }
 
-// ─── Init ───────────────────────────────────────────────
+// â”€â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function init() {
   initTheme();
   hideLoading();
