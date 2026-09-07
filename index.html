@@ -1,0 +1,367 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supplier Database - Mesin Isuzu Indonesia</title>
+  <meta name="description" content="Supplier database management system for Mesin Isuzu Indonesia.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=4">
+  <style>
+    @font-face {
+      font-family: 'Usuzi';
+      src: url('https://db.onlinewebfonts.com/t/006e5bd249bbdd29033a593bd1642e14.woff2') format('woff2'),
+           url('https://db.onlinewebfonts.com/t/006e5bd249bbdd29033a593bd1642e14.woff') format('woff'),
+           url('https://db.onlinewebfonts.com/t/006e5bd249bbdd29033a593bd1642e14.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+    .app-content { display: none; }
+    .app-content.active { display: block; }
+    .login-page.active { display: flex; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="loadingOverlay"><div class="spinner"></div></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Login Page -->
+  <div id="loginPage" class="login-page hidden fixed inset-0 z-50 items-center justify-center login-page-bg">
+    <div class="login-card w-full max-w-md p-8 mx-4 fade-in rounded-2xl">
+      <div class="text-center mb-6">
+        <div class="mx-auto mb-4 flex items-center justify-center">
+          <img src="logo.png" alt="Isuzu Logo" class="login-logo h-14 mx-auto" style="filter: invert(16%) sepia(100%) saturate(7414%) hue-rotate(355deg) brightness(94%) contrast(108%);">
+        </div>
+        <h1 class="login-title font-bold text-gray-900" style="font-family: 'Usuzi', sans-serif;">mesin isuzu indonesia</h1>
+        <p class="login-subtitle mt-1">Sign in to your account</p>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Username or Email</label>
+          <input type="text" id="loginUsername" class="login-input" placeholder="Enter username or email" onkeydown="if(event.key==='Enter')handleLogin()">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <input type="password" id="loginPassword" class="login-input" placeholder="Enter password" onkeydown="if(event.key==='Enter')handleLogin()">
+        </div>
+        <div id="loginError" class="login-error hidden"></div>
+        <button id="loginBtn" onclick="handleLogin()" class="login-btn">
+          <i class="fas fa-sign-in-alt mr-2"></i>Sign In
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>document.getElementById('loginPage').classList.remove('hidden');document.getElementById('loginPage').classList.add('active');document.getElementById('loadingOverlay').style.display='none';</script>
+
+  <!-- Main App -->
+  <div id="appContent" class="app-content">
+    <nav class="site-header sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center gap-3">
+            <div class="header-logo-wrap"><img src="logo.png" alt="Isuzu Logo" class="h-7 header-logo" style="filter: invert(16%) sepia(100%) saturate(7414%) hue-rotate(355deg) brightness(94%) contrast(108%);"></div>
+            <span class="header-brand nav-brand-text">mesin isuzu indonesia</span>
+          </div>
+          <div id="navRight" class="flex items-center gap-3">
+            <span id="navUsername" class="header-user-name hidden"></span>
+            <span id="navRole" class="header-role-badge hidden"></span>
+            <button onclick="toggleTheme()" class="header-logout flex items-center gap-1 mr-2" title="Toggle theme"><i class="fas fa-moon" id="themeToggleIcon"></i></button>
+            <button onclick="handleLogout()" class="header-logout flex items-center gap-1" id="logoutBtn"><i class="fas fa-sign-out-alt"></i>Logout</button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <!-- Stats -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="statsGrid">
+        <div class="stat-card stat-card--total">
+          <div class="stat-icon"><i class="fas fa-building"></i></div>
+          <div><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total</div></div>
+        </div>
+        <div class="stat-card stat-card--thisyear">
+          <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+          <div><div class="stat-value" id="statThisYear">0</div><div class="stat-label">This Year</div></div>
+        </div>
+        <div class="stat-card stat-card--active">
+          <div class="stat-icon"><i class="fas fa-box"></i></div>
+          <div><div class="stat-value" id="statProducts">0</div><div class="stat-label">Products</div></div>
+        </div>
+        <div class="stat-card stat-card--categories">
+          <div class="stat-icon"><i class="fas fa-tags"></i></div>
+          <div><div class="stat-value" id="statCategories">0</div><div class="stat-label">Categories</div></div>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar mb-6">
+        <div class="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
+          <div class="flex flex-wrap items-center gap-2 flex-1">
+            <div class="relative flex-1 min-w-[200px] max-w-md">
+              <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+              <input type="text" id="searchInput" placeholder="Search suppliers..." class="toolbar-input pl-9" oninput="onSearch()">
+            </div>
+            <select id="filterYear" class="toolbar-select" onchange="onSearch()">
+              <option value="">All Years</option>
+            </select>
+            <select id="filterCategory" class="toolbar-select" onchange="onSearch()">
+              <option value="">All Categories</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <input type="file" id="importFile" accept=".csv,.xls,.xlsx" style="display:none" onchange="handleImport(this)">
+            <button onclick="document.getElementById('importFile').click()" id="importBtn" class="toolbar-icon-btn hidden" title="Import CSV/Excel"><i class="fas fa-file-import"></i><span class="inline-sm">Import</span></button>
+            <button onclick="downloadTemplate()" id="templateBtn" class="toolbar-icon-btn" title="Download Template Excel"><i class="fas fa-download"></i><span class="inline-sm">Template</span></button>
+            <button onclick="exportExcel()" class="toolbar-icon-btn" title="Export to Excel"><i class="fas fa-file-excel"></i><span class="inline-sm">Export</span></button>
+            <span class="toolbar-divider"></span>
+            <button onclick="openSummaryModal()" class="toolbar-icon-btn" title="Charts &amp; Summary"><i class="fas fa-chart-pie"></i><span class="inline-sm">Summary</span></button>
+            <button onclick="openManageCategories()" id="manageCategoriesBtn" class="toolbar-icon-btn hidden" title="Manage Categories"><i class="fas fa-tags"></i><span class="inline-sm">Categories</span></button>
+            <button onclick="openManageUsers()" id="manageUsersBtn" class="toolbar-icon-btn hidden" title="Manage Users"><i class="fas fa-users-cog"></i><span class="inline-sm">Users</span></button>
+            <span class="toolbar-divider hidden" id="addSupplierDivider"></span>
+            <button onclick="openAddModal()" id="addSupplierBtn" class="toolbar-icon-btn toolbar-icon-btn--accent hidden"><i class="fas fa-plus"></i><span class="inline-sm">Add Supplier</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="data-table-wrap">
+        <div class="table-wrap">
+          <table class="data-table" id="mainTable">
+            <thead>
+              <tr>
+                <th class="sortable" onclick="sortBy('id_supplier')">ID <i class="fas fa-sort sort-icon" id="sort-id_supplier"></i></th>
+                <th class="sortable" onclick="sortBy('company_name')">Company <i class="fas fa-sort sort-icon" id="sort-company_name"></i></th>
+                <th>Contact</th>
+                <th class="col-md">Phone</th>
+                <th class="col-md">Address</th>
+                <th>Categories</th>
+                <th>Products</th>
+                <th class="text-center md:text-center sortable" onclick="sortBy('last_transaction_date')">Last Transaction <i class="fas fa-sort sort-icon" id="sort-last_transaction_date"></i></th>
+                <th class="text-center md:text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="empty-state hidden">
+          <i class="fas fa-box-open"></i>
+          <h3>No suppliers found</h3>
+          <p>Try adjusting your search or filters, or add a new supplier.</p>
+        </div>
+        <div class="pagination-bar" id="paginationBar">
+          <span class="pagination-info" id="paginationInfo">Showing 0 of 0</span>
+          <div class="flex gap-1" id="paginationButtons"></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /appContent -->
+
+  <!-- Add/Edit Supplier Modal -->
+  <div id="addEditModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="modal-content w-full max-w-4xl" style="resize:horizontal;min-width:480px">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add Supplier</h2>
+        <button onclick="closeModal()" class="modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body space-y-4">
+        <input type="hidden" id="editId">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label class="form-label">Company Name <span class="required">*</span></label><input type="text" id="fCompanyName" class="form-input" list="masterSupplierList" autocomplete="off" placeholder="Pilih atau ketik nama supplier" oninput="onSupplierNameInput()"><datalist id="masterSupplierList"></datalist><input type="hidden" id="fIdSupplier"><span id="fIdSupplierDisplay" class="text-xs text-indigo-600 font-mono block mt-1 hidden"></span></div>
+          <div><label class="form-label">Contact Person 1 <span class="required">*</span></label><input type="text" id="fContactPerson" class="form-input"></div>
+          <div><label class="form-label">Phone 1 <span class="required">*</span></label><input type="text" id="fPhone" class="form-input"><span id="fPhoneError" class="field-error"></span></div>
+          <div><label class="form-label">Email 1</label><input type="email" id="fEmail" class="form-input"></div>
+          <div><label class="form-label">Contact Person 2</label><input type="text" id="fContactPerson2" class="form-input"></div>
+          <div><label class="form-label">Phone 2</label><input type="text" id="fPhone2" class="form-input"><span id="fPhone2Error" class="field-error"></span></div>
+          <div><label class="form-label">Email 2</label><input type="email" id="fEmail2" class="form-input"></div>
+          <div><label class="form-label">Website</label><input type="url" id="fWebsite" class="form-input" placeholder="https://"></div>
+          <div><label class="form-label">Address</label><input type="text" id="fAddress" class="form-input"></div>
+        </div>
+        <div><label class="form-label">Google Maps URL</label><input type="url" id="fLocation" class="form-input" placeholder="https://maps.google.com/?q=..."></div>
+        <div>
+          <label class="form-label mb-2">Products</label>
+          <div class="table-wrap overflow-x-auto border border-gray-200 rounded-lg">
+            <table class="prod-table">
+              <thead><tr>
+                <th>Product Name</th>
+                <th style="width:160px">Category</th>
+                <th style="width:130px">Image URL</th>
+                <th class="text-center" style="width:56px">Preview</th>
+                <th class="text-center" style="width:36px"></th>
+              </tr></thead>
+              <tbody id="productsList"></tbody>
+            </table>
+          </div>
+          <button type="button" onclick="addProductField()" class="mt-2 text-sm text-indigo-600 hover:text-indigo-800"><i class="fas fa-plus-circle mr-1"></i>Add Product</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label class="form-label mb-2">Last Transaction Date</label><input type="date" id="fTransactionDate" class="form-input"></div>
+        </div>
+        <div><label class="form-label">Notes</label><textarea id="fNotes" rows="3" class="form-input"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeModal()" class="btn btn-ghost">Cancel</button>
+        <button onclick="saveSupplier()" id="saveSupplierBtn" class="btn btn-primary"><i class="fas fa-check mr-1"></i>Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div id="detailModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="modal-content w-full max-w-4xl" style="resize:horizontal;min-width:480px" id="detailContent"></div>
+  </div>
+
+  <!-- Image Lightbox -->
+  <div id="imageModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4" onclick="closeImageModal(event)">
+    <div class="relative max-w-2xl w-full max-h-[90vh] fade-in" onclick="event.stopPropagation()">
+      <button onclick="closeImageModal()" class="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-gray-600 hover:text-gray-900 z-10"><i class="fas fa-times"></i></button>
+      <img id="lightboxImage" src="" class="lightbox-img w-full">
+      <p id="lightboxCaption" class="lightbox-caption"></p>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div id="deleteModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="modal-content w-full max-w-sm p-6 text-center">
+      <div class="delete-icon"><i class="fas fa-exclamation-triangle"></i></div>
+      <h3 class="delete-title">Delete Supplier?</h3>
+      <p class="delete-desc">This action cannot be undone.</p>
+      <div class="flex justify-center gap-3">
+        <button onclick="closeDeleteModal()" class="btn btn-ghost btn-sm">Cancel</button>
+        <button onclick="confirmDelete()" id="confirmDeleteBtn" class="btn btn-danger btn-sm">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Users Modal -->
+  <div id="userModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="modal-content w-full max-w-2xl">
+      <div class="modal-header">
+        <div>
+          <h2>Manage Users</h2>
+          <p class="text-xs text-gray-400 mt-0.5">Hanya Admin yang bisa mengubah role user lain.</p>
+        </div>
+        <button onclick="closeUserModal()" class="modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
+          <h3 class="text-sm font-semibold mb-3"><i class="fas fa-user-plus mr-1.5 text-indigo-600"></i>Add New User</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <input type="text" id="fNewUserUsername" class="form-input" placeholder="Username">
+            <input type="email" id="fNewUserEmail" class="form-input" placeholder="Email">
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <input type="password" id="fNewUserPassword" class="form-input" placeholder="Password">
+            <select id="fNewUserRole" class="form-select">
+              <option value="Viewer" selected>Viewer</option>
+              <option value="Editor">Editor</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+          <button onclick="addUser()" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-1"></i>Add User</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm mb-4">
+            <thead><tr class="bg-gray-50 border-b border-gray-200">
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">Username</th>
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">Email</th>
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">Role</th>
+              <th class="text-center px-3 py-2 font-semibold text-gray-600">Actions</th>
+            </tr></thead>
+            <tbody id="userTableBody"><tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Categories Modal -->
+  <div id="categoryModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="modal-content w-full max-w-md">
+      <div class="modal-header">
+        <h2>Manage Categories</h2>
+        <button onclick="closeCategoryModal()" class="modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <table class="w-full text-sm mb-4">
+          <thead><tr class="bg-gray-50 border-b border-gray-200">
+            <th class="text-left px-3 py-2 font-semibold text-gray-600">Category</th>
+            <th class="text-left px-3 py-2 font-semibold text-gray-600">Color</th>
+            <th class="text-center px-3 py-2 font-semibold text-gray-600">Active</th>
+            <th class="text-center px-3 py-2 font-semibold text-gray-600">Actions</th>
+          </tr></thead>
+          <tbody id="categoryTableBody"></tbody>
+        </table>
+        <div class="border-t border-gray-200 pt-4 mt-2">
+          <h3 class="text-sm font-semibold mb-3">Add Category</h3>
+          <input type="text" id="fCategoryName" class="form-input mb-2" placeholder="Category name">
+          <button onclick="addCategory()" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-1"></i>Add Category</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Modal -->
+  <div id="summaryModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="modal-content w-full max-w-5xl">
+      <div class="modal-header">
+        <h2><i class="fas fa-chart-pie mr-2 text-teal-600"></i>Supplier Summary</h2>
+        <button onclick="closeSummaryModal()" class="modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <h3 class="text-sm font-semibold text-gray-600 mb-3"><i class="fas fa-tags mr-1.5 text-indigo-500"></i>Composition by Category</h3>
+            <div class="relative" style="height:280px"><canvas id="chartCategory"></canvas></div>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <h3 class="text-sm font-semibold text-gray-600 mb-3"><i class="fas fa-calendar-alt mr-1.5 text-green-500"></i>Composition by Last Transaction</h3>
+            <div class="relative" style="height:280px"><canvas id="chartStatus"></canvas></div>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <h3 class="text-sm font-semibold text-gray-600 mb-3"><i class="fas fa-map-marker-alt mr-1.5 text-red-500"></i>By District / City</h3>
+            <div class="relative" style="height:280px"><canvas id="chartLocation"></canvas><div id="locChartLoading" class="absolute inset-0 hidden items-center justify-center text-xs text-gray-400"></div></div>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <h3 class="text-sm font-semibold text-gray-600 mb-3"><i class="fas fa-box mr-1.5 text-amber-500"></i>Top Products</h3>
+            <div class="relative" style="height:280px"><canvas id="chartProducts"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audit Log Modal -->
+  <div id="auditModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="modal-content w-full max-w-3xl">
+      <div class="modal-header">
+        <h2><i class="fas fa-history mr-2 text-indigo-600"></i>Audit Log</h2>
+        <button onclick="closeAuditModal()" class="modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="bg-gray-50 border-b border-gray-200">
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">Waktu</th>
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">Aksi</th>
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">User</th>
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">Perubahan</th>
+            </tr></thead>
+            <tbody id="auditTableBody"><tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script src="regions_id.js?v=2"></script>
+<script src="app.js?v=7"></script>
+</body>
+</html>
