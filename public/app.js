@@ -70,6 +70,9 @@ var CATEGORIES = [];
 var CATEGORY_COLORS = {};
 var CATEGORY_TEXT_COLORS = {};
 var masterSuppliers = [];
+var msCurrentPage = 1;
+var msPageSize = 10;
+var msEditTargetId = null;
 var CATEGORY_PALETTE = [
   {bg:'#dbeafe',text:'#1e40af'},{bg:'#fce7f3',text:'#9d174d'},{bg:'#e0e7ff',text:'#3730a3'},{bg:'#d1fae5',text:'#065f46'},
   {bg:'#fef3c7',text:'#92400e'},{bg:'#f3e8ff',text:'#5b21b6'},{bg:'#ffedd5',text:'#9a3412'},{bg:'#f0fdf4',text:'#166534'},
@@ -194,6 +197,8 @@ async function handleLogout() {
   currentUser = null;
   suppliers = [];
   $('appContent').classList.remove('active');
+  $('adminLandingPage').classList.add('hidden');
+  $('adminLandingPage').classList.remove('flex');
   $('loginPage').classList.remove('hidden');
   $('loginPage').classList.add('active');
   $('loginUsername').value = '';
@@ -275,6 +280,53 @@ async function onLoginSuccess() {
   $('loginPage').classList.remove('active');
   bindPhoneValidation();
 
+  if (currentUser && currentUser.role === 'Admin') {
+    applyPermissions();
+    showAdminLanding();
+  } else {
+    $('appContent').classList.add('active');
+    applyPermissions();
+    updateNavbar();
+    showLoading();
+    await Promise.all([loadCategories(), loadSuppliers(), loadMasterSuppliers()]);
+    populateCategoryFilter();
+    populateYearFilter();
+    hideLoading();
+    render();
+  }
+  showToast('Welcome, ' + currentUser.username + '!', 'success');
+}
+
+function updateNavbar() {
+  if (!currentUser) return;
+  $('navUsername').textContent = currentUser.username;
+  $('navUsername').classList.remove('hidden');
+  var rc = { 'Admin': 'role-badge role-badge--admin', 'Editor': 'role-badge role-badge--editor', 'Viewer': 'role-badge role-badge--viewer' };
+  $('navRole').textContent = currentUser.role;
+  $('navRole').className = rc[currentUser.role] || 'role-badge role-badge--viewer';
+  $('navRole').classList.remove('hidden');
+  $('logoutBtn').classList.remove('hidden');
+  if (currentUser.role === 'Admin') {
+    $('navMenuBtn').classList.remove('hidden');
+  } else {
+    $('navMenuBtn').classList.add('hidden');
+  }
+}
+
+// ─── Admin Landing ─────────────────────────────────────
+
+function showAdminLanding() {
+  $('appContent').classList.remove('active');
+  $('adminLandingPage').classList.remove('hidden');
+  $('adminLandingPage').classList.add('flex');
+  if (currentUser) {
+    $('landingUsername').textContent = currentUser.username;
+  }
+}
+
+async function goToMainPage() {
+  $('adminLandingPage').classList.add('hidden');
+  $('adminLandingPage').classList.remove('flex');
   $('appContent').classList.add('active');
   applyPermissions();
   updateNavbar();
@@ -284,21 +336,12 @@ async function onLoginSuccess() {
   populateYearFilter();
   hideLoading();
   render();
-  showToast('Welcome, ' + currentUser.username + '!', 'success');
 }
 
-function updateNavbar() {
-  if (!currentUser) return;
-  $('navUsername').textContent = currentUser.username;
-  $('navUsername').classList.remove('hidden');
-  var rc = { 'Admin': 'bg-purple-100 text-purple-700', 'Editor': 'bg-blue-100 text-blue-700', 'Viewer': 'bg-gray-100 text-gray-700' };
-  $('navRole').textContent = currentUser.role;
-  $('navRole').className = 'text-xs px-2 py-0.5 rounded-full ' + (rc[currentUser.role] || 'bg-gray-100 text-gray-700');
-  $('navRole').classList.remove('hidden');
-  $('logoutBtn').classList.remove('hidden');
+function openMasterSupplierFromLanding() {
+  window.__msFromLanding = true;
+  openMasterSupplierModal();
 }
-
-// ─── Permissions ─────────────────────────────────────
 
 function applyPermissions() {
   var role = currentUser ? currentUser.role : 'Viewer';
@@ -317,6 +360,7 @@ function applyPermissions() {
   show('templateBtn',    canEdit);
   show('manageUsersBtn',      isAdmin);
   show('manageCategoriesBtn', isAdmin);
+  show('masterSupplierBtn',   isAdmin);
   show('addSupplierDivider',  canEdit);
 }
 
@@ -410,7 +454,6 @@ function getFilteredSorted() {
                (s.contactPerson2||'').toLowerCase().includes(q) ||
                (s.phone||'').toLowerCase().includes(q) ||
                (s.email||'').toLowerCase().includes(q) ||
-               (s.address||'').toLowerCase().includes(q) ||
                productStr.includes(q);
     }
     var matchYr = !yr || (s.lastTransactionDate && new Date(s.lastTransactionDate).getFullYear().toString() === yr);
@@ -476,24 +519,21 @@ function render() {
     }).join('');
     if ((s.products||[]).length > 3) prods += '<span class="product-tag">+'+(s.products.length-3)+' more</span>';
 
-    var txnDate = s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'2-digit'}) : '—';
-    var txnCls = s.lastTransactionDate ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500';
+    var txnDate = s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'2-digit'}) : 'No transaction';
+    var txnCls = s.lastTransactionDate ? 'status-badge txn-recent' : 'status-badge txn-old';
 
-    var actions = '<div class="flex items-center justify-center gap-0.5 whitespace-nowrap">' +
-      '<button onclick="openDetailModal('+s.id+')" title="View" class="text-indigo-600 hover:text-indigo-800 p-1"><i class="fas fa-eye"></i></button>';
-    if (window.__canEdit)   actions += '<button onclick="openEditModal('+s.id+')" title="Edit" class="text-yellow-500 hover:text-yellow-700 p-1"><i class="fas fa-edit"></i></button>';
-    if (window.__canDelete) actions += '<button onclick="openDeleteModal('+s.id+')" title="Delete" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>';
-    actions += '</div>';
+    var actions = '<button onclick="openDetailModal('+s.id+')" title="View" class="action-btn action-btn--view"><i class="fas fa-eye"></i></button>';
+    if (window.__canEdit)   actions += '<button onclick="openEditModal('+s.id+')" title="Edit" class="action-btn action-btn--edit"><i class="fas fa-edit"></i></button>';
+    if (window.__canDelete) actions += '<button onclick="openDeleteModal('+s.id+')" title="Delete" class="action-btn action-btn--delete"><i class="fas fa-trash"></i></button>';
 
-    return '<tr class="table-row-hover border-b border-gray-100">' +
-      '<td class="px-4 py-3 font-mono text-sm text-indigo-600" data-label="ID">'+(s.idSupplier ? escHtml(s.idSupplier) : '\u2014')+'</td>' +
-      '<td class="px-4 py-3 font-medium" data-label="Company">'+escHtml(s.companyName)+'</td>' +
-      '<td class="px-4 py-3 text-gray-600" data-label="Contact">'+escHtml(s.contactPerson)+(s.contactPerson2?'<br>'+escHtml(s.contactPerson2):'')+'</td>' +
-      '<td class="px-4 py-3 text-gray-600 col-md" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br>'+escHtml(s.phone2):'')+'</td>' +
-      '<td class="px-4 py-3 text-gray-600" data-label="Address">'+(s.address?escHtml(s.address):'\u2014')+'</td>' +
+    return '<tr class="table-row-hover">' +
+      '<td class="px-4 py-3 cell-mono text-primary" data-label="ID">'+(s.idSupplier ? escHtml(s.idSupplier) : '\u2014')+'</td>' +
+      '<td class="px-4 py-3 cell-company" data-label="Company">'+escHtml(s.companyName)+'</td>' +
+      '<td class="px-4 py-3 cell-muted" data-label="Contact">'+escHtml(s.contactPerson)+(s.contactPerson2?'<br>'+escHtml(s.contactPerson2):'')+'</td>' +
+      '<td class="px-4 py-3 cell-muted col-md" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br>'+escHtml(s.phone2):'')+'</td>' +
       '<td class="px-4 py-3" data-label="Categories">'+cats+'</td>' +
       '<td class="px-4 py-3" data-label="Products">'+prods+'</td>' +
-      '<td class="px-4 py-3 text-center md:text-center" data-label="Status"><span class="text-xs font-medium px-2 py-1 rounded-full '+txnCls+'">'+txnDate+'</span></td>' +
+      '<td class="px-4 py-3 text-center md:text-center" data-label="Status"><span class="'+txnCls+'">'+txnDate+'</span></td>' +
       '<td class="px-4 py-3 text-center md:text-center" data-label="Actions">'+actions+'</td>' +
       '</tr>';
   }).join('');
@@ -890,20 +930,13 @@ function openDetailModal(id) {
     var name = typeof p==='string'?p:p.name;
     var img  = typeof p==='object'?p.image:'';
     var cat  = typeof p==='object'?p.category:'';
-    if (img) {
-      prodHTML += '<div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">' +
-        '<div class="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center flex-shrink-0 cursor-pointer" onclick="showImageLightbox(\''+escHtml(img)+'\',\''+escHtml(name)+'\')">'+
-        '<img src="'+escHtml(img)+'" alt="'+escHtml(name)+'" style="width:100%;height:100%;object-fit:cover" onerror="imgError(this)"></div>' +
-        '<div><div class="text-sm font-medium">'+escHtml(name)+'</div>' +
-        (cat?'<div class="text-xs text-gray-400">'+escHtml(cat)+'</div>':'') +
-        '</div></div>';
-    } else {
-      prodHTML += '<div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">' +
-        '<div class="w-12 h-12 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-300"><i class="fas fa-image"></i></div>' +
-        '<div><div class="text-sm font-medium">'+escHtml(name)+'</div>' +
-        (cat?'<div class="text-xs text-gray-400">'+escHtml(cat)+'</div>':'') +
-        '</div></div>';
-    }
+    prodHTML += '<div class="detail-product">' +
+      '<div class="detail-product-thumb"'+(img?' onclick="showImageLightbox(\''+escHtml(img)+'\',\''+escHtml(name)+'\')"':'')+'>' +
+      (img ? '<img src="'+escHtml(img)+'" alt="'+escHtml(name)+'" style="width:100%;height:100%;object-fit:cover" onerror="imgError(this)">' : '<i class="fas fa-image"></i>') +
+      '</div>' +
+      '<div><div class="detail-value" style="font-weight:500">'+escHtml(name)+'</div>' +
+      (cat?'<div class="cell-muted" style="font-size:0.75rem">'+escHtml(cat)+'</div>':'') +
+      '</div></div>';
   });
 
   var mapHTML = '';
@@ -916,46 +949,56 @@ function openDetailModal(id) {
     m = loc.match(/\/place\/([^\/@?]+)/);
     if (m) q = decodeURIComponent(m[1].replace(/\+/g,' '));
     var embedSrc = 'https://maps.google.com/maps?q=' + encodeURIComponent(q) + '&output=embed&z=12';
-    mapHTML = '<div class="mt-3"><div class="map-container" style="position:relative;width:100%;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb">' +
-      '<iframe src="'+escHtml(embedSrc)+'" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allowfullscreen loading="lazy"></iframe></div>' +
-      '<a href="'+escHtml(loc.match(/^https?:\/\//)?loc:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q))+'" target="_blank" rel="noopener" class="text-blue-600 hover:underline text-xs mt-1 inline-block"><i class="fas fa-external-link-alt mr-1"></i>Open in Google Maps</a></div>';
+    mapHTML = '<div class="mt-3"><div class="map-card">' +
+      '<iframe src="'+escHtml(embedSrc)+'" allowfullscreen loading="lazy"></iframe></div>' +
+      '<a href="'+escHtml(loc.match(/^https?:\/\//)?loc:'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q))+'" target="_blank" rel="noopener" class="link-primary text-xs mt-1 inline-block"><i class="fas fa-external-link-alt mr-1"></i>Open in Google Maps</a></div>';
   }
 
   var auditHTML = '';
   if (s.created_at) {
     var createdTime = new Date(s.created_at).toLocaleString();
     var creator = s.creatorUsername || 'System';
-    auditHTML += '<div class="text-xs text-gray-400 mt-4 border-t border-gray-100 pt-3">Created by <span class="font-medium text-gray-600">' + escHtml(creator) + '</span> on ' + createdTime;
+    auditHTML += '<div class="detail-audit">Created by <span class="text-primary">' + escHtml(creator) + '</span> on ' + createdTime;
     if (s.updated_at && s.updated_at !== s.created_at) {
       var updatedTime = new Date(s.updated_at).toLocaleString();
       var updater = s.updaterUsername || 'System';
-      auditHTML += '<br>Last updated by <span class="font-medium text-gray-600">' + escHtml(updater) + '</span> on ' + updatedTime;
+      auditHTML += '<br>Last updated by <span class="text-primary">' + escHtml(updater) + '</span> on ' + updatedTime;
     }
     auditHTML += '</div>';
   }
 
-  var h = '<div class="p-6 border-b border-gray-200 flex items-center justify-between">' +
-    '<div><h2 class="text-lg font-bold">'+escHtml(s.companyName)+'</h2>' +
-    (s.idSupplier ? '<span class="text-sm text-indigo-600 font-mono">ID: '+escHtml(s.idSupplier)+'</span>' : '') + '</div>' +
-    '<button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 text-xl"><i class="fas fa-times"></i></button>' +
-    '</div><div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">' +
-    '<div class="space-y-3">' +
-    '<div><div class="text-xs text-gray-400 uppercase mb-1">Contact Person 1</div><div class="font-medium">'+escHtml(s.contactPerson)+'</div><div class="text-sm text-gray-500">'+escHtml(s.phone)+'</div>'+(s.email?'<a href="mailto:'+escHtml(s.email)+'" class="text-indigo-600 hover:underline text-sm">'+escHtml(s.email)+'</a>':'')+'</div>' +
-    (s.contactPerson2?'<div><div class="text-xs text-gray-400 uppercase mb-1">Contact Person 2</div><div class="font-medium">'+escHtml(s.contactPerson2)+'</div><div class="text-sm text-gray-500">'+escHtml(s.phone2||'')+'</div>'+(s.email2?'<a href="mailto:'+escHtml(s.email2)+'" class="text-indigo-600 hover:underline text-sm">'+escHtml(s.email2)+'</a>':'')+'</div>':'') +
-    (s.website?'<div><div class="text-xs text-gray-400 uppercase mb-1">Website</div><a href="'+escHtml(s.website)+'" target="_blank" class="text-indigo-600 hover:underline">'+escHtml(s.website)+'</a></div>':'') +
-    (s.address?'<div><div class="text-xs text-gray-400 uppercase mb-1">Address</div><div>'+escHtml(s.address)+'</div></div>':'') +
-    '<div><div class="text-xs text-gray-400 uppercase mb-1">Last Transaction</div><div class="font-medium">'+(s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID') : '—')+'</div></div>' +
-    '<div><div class="text-xs text-gray-400 uppercase mb-1">Categories</div>'+cats+'</div>' +
-    (s.notes?'<div><div class="text-xs text-gray-400 uppercase mb-1">Notes</div><div class="text-sm text-gray-600">'+escHtml(s.notes)+'</div></div>':'') +
+  var txnDateFull = s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID', {weekday:'long', day:'2-digit', month:'long', year:'numeric'}) : '\u2014';
+
+  var h = '<div class="modal-header">' +
+    '<div class="flex items-center gap-3">' +
+    '<div class="modal-header-icon"><i class="fas fa-building"></i></div>' +
+    '<div><h2>'+escHtml(s.companyName)+'</h2>' +
+    (s.idSupplier ? '<span class="detail-id">ID: '+escHtml(s.idSupplier)+'</span>' : '') + '</div>' +
+    '</div>' +
+    '<button onclick="closeDetailModal()" class="modal-close"><i class="fas fa-times"></i></button>' +
+    '</div>' +
+    '<div class="modal-body">' +
+    '<div class="grid grid-cols-1 md:grid-cols-2 gap-6">' +
+    '<div class="space-y-4">' +
+    '<div class="detail-field"><div class="detail-field-icon"><i class="fas fa-user"></i></div><div><div class="detail-section-label" style="margin-bottom:2px">Contact Person 1</div><div class="detail-value">'+escHtml(s.contactPerson)+'</div><div class="cell-muted" style="font-size:0.85rem">'+escHtml(s.phone)+'</div>'+(s.email?'<a href="mailto:'+escHtml(s.email)+'" class="link-primary" style="font-size:0.85rem">'+escHtml(s.email)+'</a>':'')+'</div></div>' +
+    (s.contactPerson2?'<div class="detail-field"><div class="detail-field-icon"><i class="fas fa-user"></i></div><div><div class="detail-section-label" style="margin-bottom:2px">Contact Person 2</div><div class="detail-value">'+escHtml(s.contactPerson2)+'</div><div class="cell-muted" style="font-size:0.85rem">'+escHtml(s.phone2||'')+'</div>'+(s.email2?'<a href="mailto:'+escHtml(s.email2)+'" class="link-primary" style="font-size:0.85rem">'+escHtml(s.email2)+'</a>':'')+'</div></div>':'') +
+    (s.website?'<div class="detail-field"><div class="detail-field-icon"><i class="fas fa-globe"></i></div><div><div class="detail-section-label" style="margin-bottom:2px">Website</div><a href="'+escHtml(s.website)+'" target="_blank" rel="noopener" class="link-primary">'+escHtml(s.website)+'</a></div></div>':'') +
+    (s.address?'<div class="detail-field"><div class="detail-field-icon"><i class="fas fa-map-marker-alt"></i></div><div><div class="detail-section-label" style="margin-bottom:2px">Address</div><div class="detail-value">'+escHtml(s.address)+'</div></div></div>':'') +
+    '<div class="detail-field"><div class="detail-field-icon"><i class="fas fa-calendar-check"></i></div><div><div class="detail-section-label" style="margin-bottom:2px">Last Transaction</div><div class="detail-value">'+txnDateFull+'</div></div></div>' +
+    '<div class="detail-field"><div class="detail-field-icon"><i class="fas fa-tags"></i></div><div><div class="detail-section-label" style="margin-bottom:2px">Categories</div>'+cats+'</div></div>' +
+    (s.notes?'<div class="detail-field"><div class="detail-field-icon"><i class="fas fa-sticky-note"></i></div><div><div class="detail-section-label" style="margin-bottom:2px">Notes</div><div class="cell-muted" style="font-size:0.85rem">'+escHtml(s.notes)+'</div></div></div>':'') +
     auditHTML +
+    '</div>' +
+    '<div>' +
+    '<div class="detail-section-label mb-2">Products ('+((s.products||[]).length)+')</div>' +
+    (prodHTML || '<div class="cell-muted" style="font-size:0.85rem">No products listed.</div>') +
     mapHTML +
     '</div>' +
-    '<div><div class="text-xs text-gray-400 uppercase mb-2">Products ('+((s.products||[]).length)+')</div>' +
-    (prodHTML || '<div class="text-sm text-gray-400">No products listed.</div>') +
-    '</div></div>' +
-    '<div class="p-6 border-t border-gray-200 flex justify-end gap-3">';
-  if (window.__canEdit) h += '<button onclick="closeDetailModal();openEditModal('+s.id+')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm"><i class="fas fa-edit mr-1"></i>Edit</button>';
-  if (currentUser && currentUser.role === 'Admin') h += '<button onclick="openAuditLogModal('+s.id+')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition"><i class="fas fa-history mr-1"></i>Audit Log</button>';
+    '</div>' +
+    '</div>' +
+    '<div class="modal-footer">';
+  if (window.__canEdit) h += '<button onclick="closeDetailModal();openEditModal('+s.id+')" class="btn btn-primary"><i class="fas fa-edit mr-1"></i>Edit</button>';
+  if (currentUser && currentUser.role === 'Admin') h += '<button onclick="openAuditLogModal('+s.id+')" class="btn btn-ghost"><i class="fas fa-history mr-1"></i>Audit Log</button>';
   h += '</div>';
   $('detailContent').innerHTML = h;
   $('detailModal').classList.remove('hidden');
@@ -1004,11 +1047,11 @@ function addProductField(v) {
   });
 
   tr.innerHTML =
-    '<td class="px-2 py-2"><input type="text" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" placeholder="Product name" value="'+escHtml(nm)+'"></td>' +
-    '<td class="px-2 py-2"><select class="product-cat-select w-full border border-gray-300 rounded px-1 py-1 text-xs focus:ring-2 focus:ring-indigo-400 outline-none">'+catOpts+'</select></td>' +
-    '<td class="px-2 py-2"><div class="flex items-center gap-1"><input type="text" class="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-400 outline-none" placeholder="Image URL" value="'+escHtml(im)+'" oninput="updateProductPreview(this)"><input type="file" accept="image/*" style="display:none" class="product-file-input" onchange="handleProductImageUpload(this)"><button type="button" onclick="this.previousElementSibling.click()" class="text-xs text-indigo-600 hover:text-indigo-800" title="Upload"><i class="fas fa-upload"></i></button></div></td>' +
-    '<td class="px-2 py-2 text-center"><div class="product-img-preview" style="width:40px;height:40px;border-radius:4px;overflow:hidden;border:1px solid #e2e8f0;margin:0 auto;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#94a3b8">'+prev+'</div></td>' +
-    '<td class="px-2 py-2 text-center"><button type="button" onclick="this.closest(\'tr\').remove()" class="text-gray-400 hover:text-red-500 transition"><i class="fas fa-times-circle"></i></button></td>';
+    '<td class="px-2 py-2"><input type="text" class="w-full" placeholder="Product name" value="'+escHtml(nm)+'"></td>' +
+    '<td class="px-2 py-2"><select class="product-cat-select w-full">'+catOpts+'</select></td>' +
+    '<td class="px-2 py-2"><div class="flex items-center gap-1"><input type="text" class="flex-1" placeholder="Image URL" value="'+escHtml(im)+'" oninput="updateProductPreview(this)"><input type="file" accept="image/*" style="display:none" class="product-file-input" onchange="handleProductImageUpload(this)"><button type="button" onclick="this.previousElementSibling.click()" class="link-primary text-xs" title="Upload"><i class="fas fa-upload"></i></button></div></td>' +
+    '<td class="px-2 py-2 text-center"><div class="product-img-preview" style="width:40px;height:40px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--color-border);margin:0 auto;background:var(--color-bg);display:flex;align-items:center;justify-content:center;font-size:1rem;color:var(--color-text-muted)">'+prev+'</div></td>' +
+    '<td class="px-2 py-2 text-center"><button type="button" onclick="this.closest(\'tr\').remove()" class="row-remove-btn"><i class="fas fa-times-circle"></i></button></td>';
   $('productsList').appendChild(tr);
 }
 
@@ -1020,7 +1063,7 @@ async function handleProductImageUpload(input) {
   
   var originalPreview = preview ? preview.innerHTML : '<i class="fas fa-image"></i>';
   if (preview) {
-    preview.innerHTML = '<i class="fas fa-spinner fa-spin text-indigo-600"></i>';
+    preview.innerHTML = '<i class="fas fa-spinner fa-spin text-primary"></i>';
   }
 
   var ext = file.name.split('.').pop();
@@ -1315,6 +1358,7 @@ function toggleTheme() {
 async function openManageUsers() {
   $('userModal').classList.remove('hidden');
   $('userModal').classList.add('flex');
+  resetNewUserPasswordToggle();
   $('userTableBody').innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr>';
 
   // Gunakan RPC get_users_with_email() agar email dari auth.users ikut tampil
@@ -1325,7 +1369,7 @@ async function openManageUsers() {
     return;
   }
 
-  var rc = {'Admin':'bg-purple-100 text-purple-700','Editor':'bg-blue-100 text-blue-700','Viewer':'bg-gray-100 text-gray-700'};
+  var rc = {'Admin':'role-badge role-badge--admin','Editor':'role-badge role-badge--editor','Viewer':'role-badge role-badge--viewer'};
   var isAdmin = currentUser && currentUser.role === 'Admin';
 
   $('userTableBody').innerHTML = (data||[]).map(function(u) {
@@ -1334,15 +1378,15 @@ async function openManageUsers() {
     if (isAdmin && !isSelf) {
       roleSelect =
         '<div class="flex items-center gap-1">' +
-        '<select id="rolesel-'+u.id+'" class="border border-gray-200 rounded px-1 py-0.5 text-xs focus:ring-2 focus:ring-indigo-400 outline-none">' +
+        '<select id="rolesel-'+u.id+'" class="user-role-select">' +
         '<option value="Admin"'+(u.role==='Admin'?' selected':'')+'>Admin</option>' +
         '<option value="Editor"'+(u.role==='Editor'?' selected':'')+'>Editor</option>' +
         '<option value="Viewer"'+(u.role==='Viewer'?' selected':'')+'>Viewer</option>' +
         '</select>' +
-        '<button onclick="saveUserRole(\''+u.id+'\')" class="text-xs text-indigo-600 hover:text-indigo-800 px-2 py-0.5 rounded border border-indigo-200 hover:bg-indigo-50 transition" title="Save role"><i class="fas fa-save"></i></button>' +
+        '<button onclick="saveUserRole(\''+u.id+'\')" class="user-save-btn" title="Save role"><i class="fas fa-save"></i></button>' +
         '</div>';
     } else {
-      roleSelect = '<span class="text-xs px-2 py-0.5 rounded-full '+(rc[u.role]||'bg-gray-100 text-gray-700')+'">' + u.role + (isSelf?' <span class="opacity-60">(you)</span>':'') + '</span>';
+      roleSelect = '<span class="'+(rc[u.role]||'role-badge role-badge--viewer')+'">' + u.role + (isSelf?' <span class="opacity-60">(you)</span>':'') + '</span>';
     }
 
     return '<tr class="border-b border-gray-100 table-row-hover" id="userrow-'+u.id+'">' +
@@ -1350,7 +1394,7 @@ async function openManageUsers() {
       '<td class="px-3 py-2 text-sm text-gray-500">' + escHtml(u.email || '—') + '</td>' +
       '<td class="px-3 py-2" id="userrole-'+u.id+'">' + roleSelect + '</td>' +
       '<td class="px-3 py-2 text-center">' +
-        (isAdmin && !isSelf ? '<button onclick="deleteUser(\''+u.id+'\')" class="text-xs text-red-500 hover:text-red-700 px-2 py-0.5 rounded border border-red-200 hover:bg-red-50 transition" title="Delete user"><i class="fas fa-trash"></i></button>' : '') +
+        (isAdmin && !isSelf ? '<button onclick="deleteUser(\''+u.id+'\')" class="user-delete-btn" title="Delete user"><i class="fas fa-trash"></i></button>' : '') +
       '</td>' +
       '</tr>';
   }).join('') || '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm">No users found.</td></tr>';
@@ -1403,6 +1447,7 @@ async function addUser() {
   if (!username || !email || !password) { showToast('Please fill all fields.', 'error'); return; }
   if (password.length < 6) { showToast('Password must be at least 6 characters.', 'error'); return; }
   $('fNewUserUsername').value = ''; $('fNewUserEmail').value = ''; $('fNewUserPassword').value = '';
+  resetNewUserPasswordToggle();
   showLoading();
 
   try {
@@ -1452,9 +1497,32 @@ async function addUser() {
   }
 }
 
+function resetNewUserPasswordToggle() {
+  var pw = $('fNewUserPassword');
+  var icon = $('fNewUserPasswordIcon');
+  if (pw) pw.type = 'password';
+  if (icon) { icon.classList.remove('fa-eye-slash'); icon.classList.add('fa-eye'); }
+}
+
+function toggleNewUserPassword() {
+  var pw = $('fNewUserPassword');
+  var icon = $('fNewUserPasswordIcon');
+  if (!pw || !icon) return;
+  if (pw.type === 'password') {
+    pw.type = 'text';
+    icon.classList.remove('fa-eye');
+    icon.classList.add('fa-eye-slash');
+  } else {
+    pw.type = 'password';
+    icon.classList.remove('fa-eye-slash');
+    icon.classList.add('fa-eye');
+  }
+}
+
 function closeUserModal() {
   $('userModal').classList.add('hidden');
   $('userModal').classList.remove('flex');
+  resetNewUserPasswordToggle();
 }
 
 // ─── Manage Categories ──────────────────────────────────
@@ -1479,14 +1547,14 @@ function renderCategories() {
   var html = ALL_CATEGORIES.map(function(c) {
     var bg = c.bg_color||'#f3e8ff', tx = c.text_color||'#5b21b6';
     var activeIcon = c.is_active
-      ? '<i class="fas fa-toggle-on text-green-500 text-lg"></i>'
-      : '<i class="fas fa-toggle-off text-gray-400 text-lg"></i>';
+      ? '<i class="fas fa-toggle-on text-success text-lg"></i>'
+      : '<i class="fas fa-toggle-off text-muted text-lg"></i>';
     return '<tr class="border-b border-gray-100">' +
       '<td class="px-3 py-2 text-sm font-medium">'+escHtml(c.name)+'</td>' +
       '<td class="px-3 py-2"><span class="category-badge" style="background:'+bg+';color:'+tx+'">'+escHtml(c.name)+'</span></td>' +
       '<td class="px-3 py-2 text-center whitespace-nowrap">' +
-        '<button onclick="toggleCategoryActive('+c.id+')" class="text-sm mx-1" title="Toggle active">'+activeIcon+'</button>' +
-        '<button onclick="deleteCategory('+c.id+')" class="text-xs text-red-600 hover:text-red-800 mx-1"><i class="fas fa-trash"></i></button>' +
+        '<button onclick="toggleCategoryActive('+c.id+')" class="action-btn" title="Toggle active">'+activeIcon+'</button>' +
+        '<button onclick="deleteCategory('+c.id+')" class="action-btn action-btn--delete" title="Delete"><i class="fas fa-trash"></i></button>' +
       '</td></tr>';
   }).join('');
   $('categoryTableBody').innerHTML = html || '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm">No categories.</td></tr>';
@@ -1629,178 +1697,127 @@ function closeSummaryModal() {
   _summaryCharts = {};
 }
 
-// ─── Region (Kabupaten/Kota) Classification ──────────────
-var _regionIndex = null;
-
-function _regionKey(name) {
-  return (name || '').toLowerCase()
-    .replace(/\bdi\s+yogyakarta\b/g, 'yogyakarta')
-    .replace(/\bdki\s+jakarta\b/g, 'jakarta')
-    .replace(/\bdaerah\s+istimewa\b/g, ' ')
-    .replace(/\bdaerah\s+khusus\b/g, ' ')
-    .replace(/\bsumatra\b/g, 'sumatera')
-    .replace(/\bkabupaten\b/g, ' ')
-    .replace(/\bkab\.?/g, ' ')
-    .replace(/\bkota\b/g, ' ')
-    .replace(/\bkotamadya\b/g, ' ')
-    .replace(/\bkodya\b/g, ' ')
-    .replace(/\badministrasi\b/g, ' ')
-    .replace(/\badm\.?/g, ' ')
-    .replace(/[^a-z0-9 ]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function _buildRegionIndex() {
-  if (_regionIndex) return _regionIndex;
-  var idx = {};
-  (window.REGIONS_ID || []).forEach(function(r) {
-    var sep = r.indexOf('|');
-    var name = sep === -1 ? r : r.substring(0, sep);
-    var prov = sep === -1 ? '' : r.substring(sep + 1);
-    var k = _regionKey(name);
-    (idx[k] = idx[k] || []).push({ name: name, province: prov });
-  });
-  _regionIndex = idx;
-  return idx;
-}
-
-function _regionTypeOf(raw) {
-  var l = (raw || '').toLowerCase();
-  if (/\bkabupaten\b|\bkab\.?/.test(l)) return 'kab';
-  if (/\bkota\b|\bkotamadya\b|\bkodya\b/.test(l)) return 'kota';
-  return null;
-}
-
-function normalizeRegionName(raw, provinceHint) {
-  if (!raw) return null;
-  var idx = _buildRegionIndex();
-  var key = _regionKey(raw);
-  if (!key) return null;
-
-  var cands = idx[key];
-  if (!cands || !cands.length) return null;
-  if (cands.length === 1) return { name: cands[0].name, province: cands[0].province };
-
-  var type = _regionTypeOf(raw);
-  if (type) {
-    var prefix = type === 'kab' ? 'kabupaten ' : 'kota ';
-    var byType = cands.filter(function(c) { return c.name.toLowerCase().indexOf(prefix) === 0; });
-    if (byType.length === 1) return { name: byType[0].name, province: byType[0].province };
-  }
-  if (provinceHint) {
-    var pk = _regionKey(provinceHint);
-    if (pk) {
-      var byProv = cands.filter(function(c) { return _regionKey(c.province) === pk; });
-      if (byProv.length === 1) return { name: byProv[0].name, province: byProv[0].province };
-    }
-  }
-  // Ambigu tanpa informasi tambahan: pilih versi "Kota" bila ada (penggunaan umum)
-  var kotaOnly = cands.filter(function(c) { return c.name.toLowerCase().indexOf('kota ') === 0; });
-  if (kotaOnly.length === 1) return { name: kotaOnly[0].name, province: kotaOnly[0].province };
-  return null;
-}
-
-var _provinceNames = ['Aceh','Sumatera Utara','Sumatera Barat','Riau','Jambi','Sumatera Selatan','Bengkulu','Lampung','Kepulauan Bangka Belitung','Kepulauan Riau','DKI Jakarta','Jawa Barat','Jawa Tengah','Daerah Istimewa Yogyakarta','Jawa Timur','Banten','Bali','Nusa Tenggara Barat','Nusa Tenggara Timur','Kalimantan Barat','Kalimantan Tengah','Kalimantan Selatan','Kalimantan Timur','Kalimantan Utara','Sulawesi Utara','Sulawesi Tengah','Sulawesi Selatan','Sulawesi Tenggara','Gorontalo','Sulawesi Barat','Maluku','Maluku Utara','Papua','Papua Barat','Papua Selatan','Papua Tengah','Papua Pegunungan','Papua Barat Daya'];
-
-function _provinceFromText(text) {
-  if (!text) return null;
-  var t = text.toLowerCase();
-  for (var i = 0; i < _provinceNames.length; i++) {
-    var p = _provinceNames[i];
-    if (t.indexOf(p.toLowerCase()) !== -1) return p;
-    var pk = _regionKey(p);
-    if (pk && t.indexOf(pk) !== -1) return p;
-  }
-  return null;
-}
-
-function cityFromAddress(address) {
-  if (!address) return null;
-  var cleaned = address.replace(/\b\d{5}\b/g, ' ').trim();
-  var parts = cleaned.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-  var provinceHint = _provinceFromText(cleaned);
-  for (var i = parts.length - 1; i >= 0; i--) {
-    var r = normalizeRegionName(parts[i], provinceHint);
-    if (r) return r;
-  }
-  return null;
-}
-
-// ─── Reverse Geocoding ───────────────────────────────────
-var _geoCacheKey = 'summary_revgeo_v1';
-
-function _geoCache() {
-  try { return JSON.parse(localStorage.getItem(_geoCacheKey) || '{}'); } catch (e) { return {}; }
-}
-
-function _geoCachePut(key, val) {
-  try {
-    var c = _geoCache();
-    c[key] = val;
-    localStorage.setItem(_geoCacheKey, JSON.stringify(c));
-  } catch (e) {}
-}
-
-function extractCoordsFromMapsUrl(location) {
+function parseCityFromMaps(location) {
   if (!location) return null;
-  var m;
-  m = location.match(/@(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/);
-  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
-  m = location.match(/[?&](?:q|ll|center|query)=(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/i);
-  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
-  m = location.match(/(-?\d{1,3}\.\d{4,})\s*,\s*(-?\d{1,3}\.\d{4,})/);
-  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  var url = location;
+
+  // 1. Cari parameter q=... (Google Maps search query)
+  var qMatch = url.match(/[?&]q=([^&]+)/i);
+  if (qMatch) {
+    var q = decodeURIComponent(qMatch[1].replace(/\+/g, ' '));
+    var city = parseCity(q);
+    if (city && city !== 'Lainnya') return city;
+  }
+
+  // 2. Cari path /place/... (Google Maps place URL)
+  var placeMatch = url.match(/\/place\/([^/@?]+)/i);
+  if (placeMatch) {
+    var place = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+    // Place path biasanya format: "Nama Tempat, Kecamatan, Kota, Provinsi"
+    var parts = place.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+
+    // Cari "Kota X" / "Kabupaten X" dalam path
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var pl = p.toLowerCase();
+      var mKota = pl.match(/^(kota)\s+(.+)/i);
+      if (mKota) return 'Kota ' + toTitleCase(mKota[2]);
+      var mKab  = pl.match(/^(kabupaten|kab\.?)\s+(.+)/i);
+      if (mKab)  return 'Kab. ' + toTitleCase(mKab[2]);
+    }
+
+    // Ambil bagian terakhir yang bukan numerik/kode pos
+    for (var j = parts.length - 1; j >= 0; j--) {
+      var pj = parts[j];
+      if (pj.length > 2 && !/^\d/.test(pj) && !/^\d{5}$/.test(pj)) {
+        // Cek apakah bagian ini terlihat seperti nama provinsi (umumnya 1 kata pendek untuk provinsi besar)
+        var commonProvinces = ['jawa barat', 'jawa timur', 'jawa tengah', 'dki jakarta', 'banten',
+                               'sumatera utara', 'sumatera barat', 'sumatera selatan', 'riau',
+                               'kalimantan timur', 'kalimantan barat', 'kalimantan selatan',
+                               'sulawesi selatan', 'sulawesi utara', 'bali', 'papua', 'yogyakarta',
+                               'aceh', 'lampung', 'bengkulu', 'jambi', 'maluku', 'ntb', 'ntt',
+                               'gorontalo', 'maluku utara', 'kepulauan riau', 'bangka belitung',
+                               'sulawesi tengah', 'sulawesi tenggara', 'sulawesi barat',
+                               'kalimantan utara', 'kalimantan tengah', 'papua barat',
+                               'di yogyakarta', 'daerah istimewa', 'daerah khusus'];
+        var isProv = false;
+        for (var k = 0; k < commonProvinces.length; k++) {
+          if (pj.toLowerCase().indexOf(commonProvinces[k]) !== -1) { isProv = true; break; }
+        }
+        if (!isProv) return toTitleCase(pj);
+      }
+    }
+
+    return toTitleCase(parts[0]);
+  }
+
   return null;
 }
 
-async function reverseGeocodeCity(lat, lng) {
-  var key = lat.toFixed(3) + ',' + lng.toFixed(3);
-  var cache = _geoCache();
-  if (cache[key]) return cache[key];
-  var result = null;
+function parseCity(address) {
+  if (!address) return 'Lainnya';
 
-  try {
-    var r = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + lat + '&longitude=' + lng + '&localityLanguage=id');
-    if (r.ok) {
-      var j = await r.json();
-      var admin = (j.localityInfo && j.localityInfo.administrative) || [];
-      var provHint = j.principalSubdivision || '';
-      var raw = '';
-      for (var i = 0; i < admin.length; i++) {
-        var a = admin[i];
-        if (a.adminLevel === 4 && a.name) provHint = a.name;
-        if (a.adminLevel === 5 && a.name) {
-          var desc = (a.description || '').toLowerCase();
-          if (desc.indexOf('kabupaten') !== -1) raw = 'Kabupaten ' + a.name;
-          else if (desc.indexOf('kota') !== -1) raw = 'Kota ' + a.name;
-          else raw = a.name;
-        }
-      }
-      if (!raw) raw = j.city || j.locality || '';
-      var region = normalizeRegionName(raw, provHint);
-      if (region) result = { name: region.name, province: region.province };
-    }
-  } catch (e) {}
+  // Normalisasi: hapus kode pos (5 digit angka di akhir)
+  var cleaned = address.replace(/\b\d{5}\b/g, '').trim();
 
-  if (!result) {
-    try {
-      var r2 = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + lat + '&lon=' + lng + '&zoom=10&accept-language=id', { headers: { 'User-Agent': 'SupplierDB-MesinIsuzu' } });
-      if (r2.ok) {
-        var j2 = await r2.json();
-        var a = j2.address || {};
-        var region2 = normalizeRegionName(a.county || a.city || a.state_district || a.municipality, a.state);
-        if (region2) result = { name: region2.name, province: region2.province };
-      }
-    } catch (e) {}
+  var parts = cleaned.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+
+  var skipPrefixes = ['jl.', 'jl ', 'jalan ', 'jln.', 'jln ', 'no.', 'no ', 'blok ', 'blk.', 'rt ', 'rw ',
+                      'ds.', 'ds ', 'dusun ', 'kp.', 'kp ', 'kampung ', 'gg.', 'gg ', 'gang '];
+
+  // 1. Cari "Kota ..." / "Kabupaten ..." / "Kab. ..." eksplisit
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i];
+    var pl = p.toLowerCase();
+    var mKota = pl.match(/^(kota)\s+(.+)/i);
+    if (mKota) return 'Kota ' + toTitleCase(mKota[2]);
+    var mKab  = pl.match(/^(kabupaten|kab\.?)\s+(.+)/i);
+    if (mKab)  return 'Kab. ' + toTitleCase(mKab[2]);
   }
 
-  if (result) _geoCachePut(key, result);
-  return result;
+  // 2. Cari bagian yg mengandung kata "Kecamatan" — ambil nama kecamatannya sebagai fallback
+  var kecName = null;
+  for (var j = 0; j < parts.length; j++) {
+    var pl2 = parts[j].toLowerCase();
+    var mKec = pl2.match(/^kec(?:amatan)?[.\s]+(.+)/i);
+    if (mKec) { kecName = toTitleCase(mKec[1]); continue; }
+    if (pl2.indexOf('kecamatan') === 0 || pl2.indexOf('kec.') === 0) continue;
+  }
+
+  // 3. Ambil bagian terakhir yang bukan awalan jalan / terlalu pendek / numerik / administratif
+  var adminWords = ['kecamatan', 'kec.', 'kec ', 'kelurahan', 'kel.', 'kel ', 'desa', 'provinsi',
+                    'prov.', 'prov ', 'indonesia', 'rt ', 'rw ', 'kodepos', 'kode pos'];
+  for (var k = parts.length - 1; k >= 0; k--) {
+    var pk = parts[k];
+    var pkl = pk.toLowerCase();
+
+    // Skip jika diawali prefix jalan
+    var pref = false;
+    for (var x = 0; x < skipPrefixes.length; x++) {
+      if (pkl.indexOf(skipPrefixes[x]) === 0) { pref = true; break; }
+    }
+    if (pref) continue;
+
+    // Skip jika bagian administratif
+    var adm = false;
+    for (var y = 0; y < adminWords.length; y++) {
+      if (pkl.indexOf(adminWords[y]) === 0) { adm = true; break; }
+    }
+    if (adm) continue;
+
+    // Skip jika pendek banget atau dimulai angka (biasanya nomor rumah/RT/RW)
+    if (pk.length <= 2 || /^\d/.test(pk)) continue;
+
+    return toTitleCase(pk);
+  }
+
+  return kecName || 'Lainnya';
 }
 
-function _sleep(ms) {
-  return new Promise(function(res) { setTimeout(res, ms); });
+function toTitleCase(str) {
+  return str.replace(/\w\S*/g, function(txt) {
+    return txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase();
+  });
 }
 
 function renderSummaryCharts() {
@@ -1834,7 +1851,7 @@ function renderSummaryCharts() {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { display: false }
+        legend: { position: 'right', labels: { boxWidth: 12, padding: 8, font: { size: 11 }, color: '#4b5563' } }
       }
     }
   });
@@ -1889,8 +1906,40 @@ function renderSummaryCharts() {
     }
   });
 
-  // ── 3. Chart by Location (Top 10 kabupaten/kota) ──
-  renderLocationChart();
+  // ── 3. Chart by Location (Top 10 cities) ──
+  var locCount = {};
+  suppliers.forEach(function(s) {
+    var city = parseCityFromMaps(s.location) || parseCity(s.address);
+    if (!city) return;
+    locCount[city] = (locCount[city] || 0) + 1;
+  });
+  var locEntries = Object.entries(locCount).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 10);
+  var locLabels  = locEntries.map(function(e) { return e[0]; });
+  var locData    = locEntries.map(function(e) { return e[1]; });
+
+  _summaryCharts.location = new Chart($('chartLocation'), {
+    type: 'bar',
+    data: {
+      labels: locLabels,
+      datasets: [{
+        data: locData,
+        backgroundColor: locEntries.map(function(_, i) { return palette[i % palette.length]; }),
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: { ticks: { stepSize: 1, font: { size: 10 }, color: '#6b7280' }, grid: { color: '#f3f4f6' } },
+        y: { ticks: { font: { size: 11 }, color: '#4b5563' }, grid: { display: false } }
+      }
+    }
+  });
 
   // ── 4. Chart by Products (Top 10) ──
   var prodCount = {};
@@ -1929,84 +1978,6 @@ function renderSummaryCharts() {
   });
 }
 
-async function renderLocationChart() {
-  var loadingEl = $('locChartLoading');
-  var canvasEl = $('chartLocation');
-  if (loadingEl) {
-    loadingEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memuat lokasi…';
-    loadingEl.classList.remove('hidden');
-    loadingEl.classList.add('flex');
-  }
-  if (canvasEl) canvasEl.style.visibility = 'hidden';
-
-  var withCoords = [], withoutCoords = [];
-  suppliers.forEach(function(s) {
-    var c = extractCoordsFromMapsUrl(s.location);
-    if (c) withCoords.push({ s: s, c: c }); else withoutCoords.push(s);
-  });
-
-  var locCount = {};
-  var cache = _geoCache();
-
-  for (var i = 0; i < withCoords.length; i++) {
-    var item = withCoords[i];
-    var key = item.c.lat.toFixed(3) + ',' + item.c.lng.toFixed(3);
-    var region = cache[key] || await reverseGeocodeCity(item.c.lat, item.c.lng);
-    if (!region) region = cityFromAddress(item.s.address);
-    if (region) locCount[region.name] = (locCount[region.name] || 0) + 1;
-    else locCount['Lainnya'] = (locCount['Lainnya'] || 0) + 1;
-    if (loadingEl && (withCoords.length > 1)) {
-      loadingEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memuat lokasi (' + (i + 1) + '/' + withCoords.length + ')';
-    }
-    if ($('summaryModal').classList.contains('hidden')) return;
-    if (i < withCoords.length - 1) await _sleep(250);
-  }
-
-  withoutCoords.forEach(function(s) {
-    var region = cityFromAddress(s.address);
-    if (region) locCount[region.name] = (locCount[region.name] || 0) + 1;
-    else locCount['Lainnya'] = (locCount['Lainnya'] || 0) + 1;
-  });
-
-  if ($('summaryModal').classList.contains('hidden')) return;
-  if (loadingEl) {
-    loadingEl.classList.add('hidden');
-    loadingEl.classList.remove('flex');
-  }
-  if (canvasEl) canvasEl.style.visibility = '';
-
-  var palette = ['#4f46e5','#0891b2','#059669','#d97706','#dc2626','#7c3aed','#db2777','#2563eb',
-                 '#65a30d','#ea580c','#9333ea','#0284c7','#16a34a','#ca8a04','#e11d48'];
-
-  var locEntries = Object.entries(locCount).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 10);
-  var locLabels  = locEntries.map(function(e) { return e[0]; });
-  var locData    = locEntries.map(function(e) { return e[1]; });
-
-  _summaryCharts.location = new Chart($('chartLocation'), {
-    type: 'bar',
-    data: {
-      labels: locLabels,
-      datasets: [{
-        data: locData,
-        backgroundColor: locEntries.map(function(_, i) { return palette[i % palette.length]; }),
-        borderRadius: 4,
-        borderSkipped: false
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      indexAxis: 'y',
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: { ticks: { stepSize: 1, font: { size: 10 }, color: '#6b7280' }, grid: { color: '#f3f4f6' } },
-        y: { ticks: { font: { size: 11 }, color: '#4b5563' }, grid: { display: false } }
-      }
-    }
-  });
-}
-
 // ─── Audit Log ─────────────────────────────────────────────
 async function openAuditLogModal(supplierId) {
   closeDetailModal();
@@ -2021,13 +1992,13 @@ async function openAuditLogModal(supplierId) {
   }
 
   var actionIcon = { 'INSERT': '&#x2795;', 'UPDATE': '&#x270F;&#xFE0F;', 'DELETE': '&#x1F5D1;&#xFE0F;' };
-  var actionColor = { 'INSERT': 'text-green-600', 'UPDATE': 'text-amber-600', 'DELETE': 'text-red-600' };
+  var actionColor = { 'INSERT': 'text-success', 'UPDATE': 'text-warning', 'DELETE': 'text-danger' };
 
   $('auditTableBody').innerHTML = (data || []).map(function(log) {
     var changesHtml = '';
     if (log.action === 'UPDATE' && log.old_data && log.new_data) {
       var diff = getJsonDiff(log.old_data, log.new_data);
-      changesHtml = '<button onclick="var el=this.nextElementSibling;el.classList.toggle(\'hidden\')" class="text-xs text-indigo-600 hover:underline">' + diff.length + ' change(s)</button>' +
+      changesHtml = '<button onclick="var el=this.nextElementSibling;el.classList.toggle(\'hidden\')" class="link-primary text-xs">' + diff.length + ' change(s)</button>' +
         '<pre class="hidden mt-1 text-xs bg-gray-50 p-2 rounded max-h-32 overflow-auto whitespace-pre-wrap">' + escHtml(JSON.stringify(diff, null, 2)) + '</pre>';
     } else if (log.action === 'INSERT') {
       changesHtml = '<span class="text-xs text-gray-400">Record created</span>';
@@ -2059,7 +2030,7 @@ function closeAuditModal() {
   $('auditModal').classList.remove('flex');
 }
 
-// ─── Master Supplier (referensi untuk autocomplete form) ──
+// ─── Master Supplier ────────────────────────────────────
 
 async function loadMasterSuppliers() {
   var { data, error } = await supabase
@@ -2079,6 +2050,261 @@ function populateMasterSupplierDatalist() {
     opt.value = ms.nama_supplier;
     dl.appendChild(opt);
   });
+}
+
+async function openMasterSupplierModal() {
+  window.__msFromLanding = false;
+  $('masterSupplierModal').classList.remove('hidden');
+  $('masterSupplierModal').classList.add('flex');
+  $('msTableBody').innerHTML = '<tr><td colspan="3" class="px-3 py-4 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr>';
+  await loadMasterSuppliers();
+  msCurrentPage = 1;
+  msEditTargetId = null;
+  $('msIdSupplier').value = '';
+  $('msNamaSupplier').value = '';
+  $('msAddBtn').textContent = 'Add';
+  $('msCancelEditBtn').classList.add('hidden');
+  $('msFormTitle').textContent = 'Add Master Supplier';
+  renderMasterSupplierTable();
+}
+
+function closeMasterSupplierModal() {
+  $('masterSupplierModal').classList.add('hidden');
+  $('masterSupplierModal').classList.remove('flex');
+  msEditTargetId = null;
+  $('msIdSupplier').value = '';
+  $('msNamaSupplier').value = '';
+  $('msAddBtn').textContent = 'Add';
+  $('msCancelEditBtn').classList.add('hidden');
+  $('msFormTitle').textContent = 'Add Master Supplier';
+
+  if (window.__msFromLanding) {
+    showAdminLanding();
+  }
+}
+
+function renderMasterSupplierTable() {
+  var total = masterSuppliers.length;
+  var pages = Math.max(1, Math.ceil(total / msPageSize));
+  if (msCurrentPage > pages) msCurrentPage = pages;
+  var start = (msCurrentPage - 1) * msPageSize;
+  var page = masterSuppliers.slice(start, start + msPageSize);
+
+  var tbody = $('msTableBody');
+  if (!page.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="px-3 py-4 text-center text-gray-400 text-sm">No master suppliers found. Add one above or import from CSV.</td></tr>';
+    $('msPaginationBar').style.display = 'none';
+    return;
+  }
+  $('msPaginationBar').style.display = '';
+
+  tbody.innerHTML = page.map(function(ms) {
+    var isEditing = msEditTargetId === ms.id_supplier;
+    var rowClass = isEditing ? 'row-editing border-b border-gray-100' : 'border-b border-gray-100 table-row-hover';
+    return '<tr class="'+rowClass+'">' +
+      '<td class="px-3 py-2 cell-mono text-primary">'+escHtml(ms.id_supplier)+'</td>' +
+      '<td class="px-3 py-2 text-sm font-medium">'+escHtml(ms.nama_supplier)+'</td>' +
+      '<td class="px-3 py-2 text-center whitespace-nowrap">' +
+        '<button onclick="editMasterSupplierRow(\''+escHtml(ms.id_supplier)+'\')" class="action-btn action-btn--edit" title="Edit"><i class="fas fa-edit"></i></button>' +
+        '<button onclick="deleteMasterSupplier(\''+escHtml(ms.id_supplier)+'\')" class="action-btn action-btn--delete" title="Delete"><i class="fas fa-trash"></i></button>' +
+      '</td></tr>';
+  }).join('');
+
+  var info = $('msPaginationInfo');
+  var btns = $('msPaginationButtons');
+  info.textContent = 'Showing ' + Math.min(total, start+1) + '\u2013' + Math.min(total, start+msPageSize) + ' of ' + total;
+
+  var html = '';
+  html += '<button class="pagination-btn rounded-l-lg" onclick="msGoPage('+(msCurrentPage-1)+')" '+(msCurrentPage===1?'disabled':'')+'>\u2039</button>';
+  for (var i = 1; i <= pages; i++) {
+    if (pages > 7 && Math.abs(i - msCurrentPage) > 2 && i !== 1 && i !== pages) {
+      if (i === msCurrentPage - 3 || i === msCurrentPage + 3) html += '<button class="pagination-btn" disabled>\u2026</button>';
+      continue;
+    }
+    html += '<button class="pagination-btn'+(i===msCurrentPage?' active':'')+'" onclick="msGoPage('+i+')">'+i+'</button>';
+  }
+  html += '<button class="pagination-btn rounded-r-lg" onclick="msGoPage('+(msCurrentPage+1)+')" '+(msCurrentPage===pages?'disabled':'')+'>\u203a</button>';
+  btns.innerHTML = html;
+}
+
+function msGoPage(p) {
+  var pages = Math.max(1, Math.ceil(masterSuppliers.length / msPageSize));
+  if (p < 1 || p > pages) return;
+  msCurrentPage = p;
+  renderMasterSupplierTable();
+}
+
+function editMasterSupplierRow(id_supplier) {
+  msEditTargetId = id_supplier;
+  var ms = masterSuppliers.find(function(m){ return m.id_supplier === id_supplier; });
+  if (ms) {
+    $('msIdSupplier').value = ms.id_supplier;
+    $('msNamaSupplier').value = ms.nama_supplier;
+  }
+  $('msAddBtn').textContent = 'Update';
+  $('msCancelEditBtn').classList.remove('hidden');
+  $('msFormTitle').textContent = 'Edit Master Supplier';
+  renderMasterSupplierTable();
+}
+
+function cancelEditMasterSupplier() {
+  msEditTargetId = null;
+  $('msIdSupplier').value = '';
+  $('msNamaSupplier').value = '';
+  $('msAddBtn').textContent = 'Add';
+  $('msCancelEditBtn').classList.add('hidden');
+  $('msFormTitle').textContent = 'Add Master Supplier';
+  renderMasterSupplierTable();
+}
+
+async function addMasterSupplier() {
+  var idSup = $('msIdSupplier').value.trim();
+  var namaSup = $('msNamaSupplier').value.trim();
+
+  if (!idSup || !namaSup) { showToast('Both ID Supplier and Nama Supplier are required.', 'error'); return; }
+  if (!/^\d{7}$/.test(idSup)) { showToast('ID Supplier must be exactly 7 digits.', 'error'); return; }
+
+  if (msEditTargetId) {
+    if (idSup !== msEditTargetId && masterSuppliers.some(function(m){ return m.id_supplier === idSup; })) {
+      showToast('ID Supplier already exists.', 'error'); return;
+    }
+    showLoading();
+    var { error } = await supabase
+      .from('master_suppliers')
+      .update({ id_supplier: idSup, nama_supplier: namaSup })
+      .eq('id_supplier', msEditTargetId);
+    hideLoading();
+    if (error) { showToast('Error updating: ' + error.message, 'error'); return; }
+
+    var idx = masterSuppliers.findIndex(function(m){ return m.id_supplier === msEditTargetId; });
+    if (idx !== -1) {
+      masterSuppliers[idx].id_supplier = idSup;
+      masterSuppliers[idx].nama_supplier = namaSup;
+    }
+    masterSuppliers.sort(function(a,b){ return a.nama_supplier.localeCompare(b.nama_supplier); });
+    msEditTargetId = null;
+    $('msIdSupplier').value = '';
+    $('msNamaSupplier').value = '';
+    $('msAddBtn').textContent = 'Add';
+    $('msCancelEditBtn').classList.add('hidden');
+    $('msFormTitle').textContent = 'Add Master Supplier';
+    renderMasterSupplierTable();
+    populateMasterSupplierDatalist();
+    showToast('Master supplier updated.', 'success');
+  } else {
+    if (masterSuppliers.some(function(m){ return m.id_supplier === idSup; })) {
+      showToast('ID Supplier already exists.', 'error'); return;
+    }
+    showLoading();
+    var { error } = await supabase
+      .from('master_suppliers')
+      .insert({ id_supplier: idSup, nama_supplier: namaSup });
+    hideLoading();
+    if (error) { showToast('Error adding: ' + error.message, 'error'); return; }
+
+    masterSuppliers.push({ id_supplier: idSup, nama_supplier: namaSup, created_at: new Date().toISOString() });
+    masterSuppliers.sort(function(a,b){ return a.nama_supplier.localeCompare(b.nama_supplier); });
+    $('msIdSupplier').value = '';
+    $('msNamaSupplier').value = '';
+    renderMasterSupplierTable();
+    populateMasterSupplierDatalist();
+    showToast('Master supplier added.', 'success');
+  }
+}
+
+async function deleteMasterSupplier(id_supplier) {
+  if (!confirm('Delete master supplier "'+id_supplier+'"? This only removes from the reference list.')) return;
+  showLoading();
+  var { error } = await supabase
+    .from('master_suppliers')
+    .delete()
+    .eq('id_supplier', id_supplier);
+  hideLoading();
+  if (error) { showToast('Error deleting: ' + error.message, 'error'); return; }
+  masterSuppliers = masterSuppliers.filter(function(m){ return m.id_supplier !== id_supplier; });
+  if (msEditTargetId === id_supplier) cancelEditMasterSupplier();
+  else renderMasterSupplierTable();
+  populateMasterSupplierDatalist();
+  showToast('Master supplier deleted.', 'success');
+}
+
+function handleMasterImport(input) {
+  var file = input.files[0]; if (!file) return;
+  if (!window.__canEdit) { showToast('You do not have permission to import.', 'error'); input.value=''; return; }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var text = e.target.result;
+    var lines = text.split('\n').filter(function(l) { return l.trim(); });
+    if (lines.length < 2) { showToast('CSV file is empty or has no data rows.', 'error'); input.value=''; return; }
+    var delim = detectDelimiter(lines.slice(0, 5));
+    var headers = parseCSVRow(lines[0], delim);
+    var rows = [];
+    for (var i = 1; i < lines.length; i++) { var line=lines[i].trim(); if(line) rows.push(parseCSVRow(line, delim)); }
+    processMasterImport(headers, rows, input);
+  };
+  reader.onerror = function() { showToast('Failed to read file.', 'error'); };
+  reader.readAsText(file);
+}
+
+async function processMasterImport(headers, rows, input) {
+  var hLower = headers.map(function(h){ return h.toString().toLowerCase().trim(); });
+
+  var idColKeys = ['id_supplier','id supplier','kode supplier','kode','id','code','kode_supplier','supplier id'];
+  var namaColKeys = ['nama_supplier','nama supplier','nama','supplier name','company','perusahaan'];
+
+  var idIdx = -1, namaIdx = -1;
+  for (var i = 0; i < hLower.length; i++) {
+    if (idIdx === -1) {
+      for (var j = 0; j < idColKeys.length; j++) {
+        if (hLower[i].indexOf(idColKeys[j]) !== -1) { idIdx = i; break; }
+      }
+    }
+    if (namaIdx === -1 && i !== idIdx) {
+      for (var k = 0; k < namaColKeys.length; k++) {
+        if (hLower[i].indexOf(namaColKeys[k]) !== -1) { namaIdx = i; break; }
+      }
+    }
+    if (idIdx !== -1 && namaIdx !== -1) break;
+  }
+
+  if (idIdx === -1) { showToast('Could not find ID-Supplier column. Expected headers like: ID-Supplier, Kode Supplier, etc.', 'error'); input.value=''; return; }
+  if (namaIdx === -1) { showToast('Could not find Nama Supplier column. Expected headers like: Nama Supplier, Supplier, Nama, etc.', 'error'); input.value=''; return; }
+
+  var batch = [], skipped = 0;
+  rows.forEach(function(row) {
+    var id = (row[idIdx]||'').toString().trim();
+    var nama = (row[namaIdx]||'').toString().trim();
+    if (!id || !nama || !/^\d{7}$/.test(id)) { skipped++; return; }
+    batch.push({ id_supplier: id, nama_supplier: nama });
+  });
+
+  if (!batch.length) { showToast('No valid rows found. Ensure ID-Supplier is 7 digits.', 'warning'); input.value=''; return; }
+
+  showLoading();
+  var { error } = await supabase.from('master_suppliers').upsert(batch, { onConflict: 'id_supplier' });
+  hideLoading();
+  input.value = '';
+  if (error) { showToast('Import failed: ' + error.message, 'error'); return; }
+  await loadMasterSuppliers();
+  renderMasterSupplierTable();
+  populateMasterSupplierDatalist();
+  showToast('Imported ' + batch.length + ' master supplier(s), ' + skipped + ' skipped.', 'success');
+}
+
+function downloadMasterTemplate() {
+  var csv = 'ID-Supplier,Nama Supplier\n1000187,PT Maju Jaya\n1000188,CV Sentosa Abadi\n1000189,UD Berkah Makmur\n';
+  downloadFile(csv, 'template-master-supplier.csv', 'text/csv');
+  showToast('Template downloaded!', 'success');
+}
+
+function exportMasterCSV() {
+  if (!masterSuppliers.length) { showToast('No data to export.', 'warning'); return; }
+  var csv = 'ID-Supplier,Nama Supplier\n';
+  csv += masterSuppliers.map(function(ms) {
+    return csvEsc(ms.id_supplier) + ',' + csvEsc(ms.nama_supplier);
+  }).join('\n');
+  downloadFile(csv, 'master-suppliers.csv', 'text/csv');
+  showToast('CSV exported!', 'success');
 }
 
 // ─── Init ───────────────────────────────────────────────

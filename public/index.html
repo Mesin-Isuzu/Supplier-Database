@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
   <style>
     @font-face {
       font-family: 'Usuzi';
@@ -55,11 +55,41 @@
         <button id="loginBtn" onclick="handleLogin()" class="login-btn">
           <i class="fas fa-sign-in-alt mr-2"></i>Sign In
         </button>
+        <p class="text-center" style="font-size:0.7rem;color:var(--color-text-muted)">PT Mesin Isuzu Indonesia &middot; Supplier Database</p>
       </div>
     </div>
   </div>
 
   <script>document.getElementById('loginPage').classList.remove('hidden');document.getElementById('loginPage').classList.add('active');document.getElementById('loadingOverlay').style.display='none';</script>
+
+  <!-- Admin Landing Page -->
+  <div id="adminLandingPage" class="landing-page hidden fixed inset-0 z-50 flex-col items-center justify-center p-6 overflow-y-auto">
+    <div class="landing-content">
+      <div class="text-center mb-10">
+        <img src="logo.png" alt="Isuzu Logo" class="landing-logo h-16 mx-auto mb-4" style="filter: invert(16%) sepia(100%) saturate(7414%) hue-rotate(355deg) brightness(94%) contrast(108%);">
+        <h1 class="landing-brand-title text-2xl font-bold">mesin isuzu indonesia</h1>
+        <p class="landing-brand-sub mt-2">Supplier Database Management System</p>
+        <p class="landing-brand-user mt-1" id="landingUsername"></p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div class="landing-card" onclick="goToMainPage()">
+          <div class="landing-card-icon"><i class="fas fa-database"></i></div>
+          <h3 class="landing-card-title">Database Supplier</h3>
+          <p class="landing-card-desc">Kelola data supplier, produk, kategori, serta import &amp; export data.</p>
+          <span class="landing-card-btn"><i class="fas fa-arrow-right text-xs"></i>Buka</span>
+        </div>
+        <div class="landing-card landing-card--brand" onclick="openMasterSupplierFromLanding()">
+          <div class="landing-card-icon"><i class="fas fa-list-alt"></i></div>
+          <h3 class="landing-card-title">Master Supplier</h3>
+          <p class="landing-card-desc">Daftar referensi ID &amp; nama supplier untuk autocomplete input.</p>
+          <span class="landing-card-btn"><i class="fas fa-arrow-right text-xs"></i>Buka</span>
+        </div>
+      </div>
+      <div class="text-center mt-10">
+        <button onclick="handleLogout()" class="landing-logout-btn"><i class="fas fa-sign-out-alt"></i>Logout</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Main App -->
   <div id="appContent" class="app-content">
@@ -71,6 +101,7 @@
             <span class="header-brand nav-brand-text">mesin isuzu indonesia</span>
           </div>
           <div id="navRight" class="flex items-center gap-3">
+            <button onclick="showAdminLanding()" id="navMenuBtn" class="header-menu-btn hidden" title="Admin Menu"><i class="fas fa-th-large"></i></button>
             <span id="navUsername" class="header-user-name hidden"></span>
             <span id="navRole" class="header-role-badge hidden"></span>
             <button onclick="toggleTheme()" class="header-logout flex items-center gap-1 mr-2" title="Toggle theme"><i class="fas fa-moon" id="themeToggleIcon"></i></button>
@@ -126,7 +157,7 @@
             <button onclick="openManageCategories()" id="manageCategoriesBtn" class="toolbar-icon-btn hidden" title="Manage Categories"><i class="fas fa-tags"></i><span class="inline-sm">Categories</span></button>
             <button onclick="openManageUsers()" id="manageUsersBtn" class="toolbar-icon-btn hidden" title="Manage Users"><i class="fas fa-users-cog"></i><span class="inline-sm">Users</span></button>
             <span class="toolbar-divider hidden" id="addSupplierDivider"></span>
-            <button onclick="openAddModal()" id="addSupplierBtn" class="toolbar-icon-btn toolbar-icon-btn--accent hidden"><i class="fas fa-plus"></i><span class="inline-sm">Add Supplier</span></button>
+            <button onclick="openAddModal()" id="addSupplierBtn" class="toolbar-icon-btn toolbar-icon-btn--brand hidden"><i class="fas fa-plus"></i><span class="inline-sm">Add Supplier</span></button>
           </div>
         </div>
       </div>
@@ -152,7 +183,7 @@
           </table>
         </div>
         <div id="emptyState" class="empty-state hidden">
-          <i class="fas fa-box-open"></i>
+          <div class="empty-icon"><i class="fas fa-box-open"></i></div>
           <h3>No suppliers found</h3>
           <p>Try adjusting your search or filters, or add a new supplier.</p>
         </div>
@@ -168,13 +199,16 @@
   <div id="addEditModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
     <div class="modal-content w-full max-w-4xl" style="resize:horizontal;min-width:480px">
       <div class="modal-header">
-        <h2 id="modalTitle">Add Supplier</h2>
+        <div class="flex items-center gap-3">
+          <div class="modal-header-icon"><i class="fas fa-building"></i></div>
+          <h2 id="modalTitle">Add Supplier</h2>
+        </div>
         <button onclick="closeModal()" class="modal-close"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body space-y-4">
         <input type="hidden" id="editId">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div><label class="form-label">Company Name <span class="required">*</span></label><input type="text" id="fCompanyName" class="form-input" list="masterSupplierList" autocomplete="off" placeholder="Pilih atau ketik nama supplier" oninput="onSupplierNameInput()"><datalist id="masterSupplierList"></datalist><input type="hidden" id="fIdSupplier"><span id="fIdSupplierDisplay" class="text-xs text-indigo-600 font-mono block mt-1 hidden"></span></div>
+          <div><label class="form-label">Company Name <span class="required">*</span></label><input type="text" id="fCompanyName" class="form-input" list="masterSupplierList" autocomplete="off" placeholder="Pilih atau ketik nama supplier" oninput="onSupplierNameInput()"><datalist id="masterSupplierList"></datalist><input type="hidden" id="fIdSupplier"><span id="fIdSupplierDisplay" class="cell-mono text-primary block mt-1 hidden"></span></div>
           <div><label class="form-label">Contact Person 1 <span class="required">*</span></label><input type="text" id="fContactPerson" class="form-input"></div>
           <div><label class="form-label">Phone 1 <span class="required">*</span></label><input type="text" id="fPhone" class="form-input"><span id="fPhoneError" class="field-error"></span></div>
           <div><label class="form-label">Email 1</label><input type="email" id="fEmail" class="form-input"></div>
@@ -199,7 +233,7 @@
               <tbody id="productsList"></tbody>
             </table>
           </div>
-          <button type="button" onclick="addProductField()" class="mt-2 text-sm text-indigo-600 hover:text-indigo-800"><i class="fas fa-plus-circle mr-1"></i>Add Product</button>
+          <button type="button" onclick="addProductField()" class="mt-2 text-sm link-primary"><i class="fas fa-plus-circle mr-1"></i>Add Product</button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div><label class="form-label mb-2">Last Transaction Date</label><input type="date" id="fTransactionDate" class="form-input"></div>
@@ -244,15 +278,18 @@
   <div id="userModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
     <div class="modal-content w-full max-w-2xl">
       <div class="modal-header">
-        <div>
-          <h2>Manage Users</h2>
-          <p class="text-xs text-gray-400 mt-0.5">Hanya Admin yang bisa mengubah role user lain.</p>
+        <div class="flex items-center gap-3">
+          <div class="modal-header-icon"><i class="fas fa-users-cog"></i></div>
+          <div>
+            <h2>Manage Users</h2>
+            <p class="text-xs text-gray-400 mt-0.5">Hanya Admin yang bisa mengubah role user lain.</p>
+          </div>
         </div>
         <button onclick="closeUserModal()" class="modal-close"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body">
-        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
-          <h3 class="text-sm font-semibold mb-3"><i class="fas fa-user-plus mr-1.5 text-indigo-600"></i>Add New User</h3>
+        <div class="form-card mb-4">
+          <h3 class="form-card-title"><i class="fas fa-user-plus mr-1.5 text-primary"></i>Add New User</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             <input type="text" id="fNewUserUsername" class="form-input" placeholder="Username">
             <input type="email" id="fNewUserEmail" class="form-input" placeholder="Email">
@@ -286,7 +323,10 @@
   <div id="categoryModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
     <div class="modal-content w-full max-w-md">
       <div class="modal-header">
-        <h2>Manage Categories</h2>
+        <div class="flex items-center gap-3">
+          <div class="modal-header-icon"><i class="fas fa-tags"></i></div>
+          <h2>Manage Categories</h2>
+        </div>
         <button onclick="closeCategoryModal()" class="modal-close"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body">
@@ -308,29 +348,78 @@
     </div>
   </div>
 
+  <!-- Master Supplier Modal -->
+  <div id="masterSupplierModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
+    <div class="modal-content w-full max-w-xl">
+      <div class="modal-header">
+        <div class="flex items-center gap-3">
+          <div class="modal-header-icon"><i class="fas fa-list-alt"></i></div>
+          <div>
+            <h2>Master Supplier</h2>
+            <p class="text-xs text-gray-400 mt-0.5">Daftar referensi ID &amp; nama supplier.</p>
+          </div>
+        </div>
+        <button onclick="closeMasterSupplierModal()" class="modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-card mb-4">
+          <h3 class="form-card-title" id="msFormTitle">Add Master Supplier</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <input type="text" id="msIdSupplier" class="form-input" placeholder="ID Supplier (7 digit)" inputmode="numeric" maxlength="7">
+            <input type="text" id="msNamaSupplier" class="form-input" placeholder="Nama Supplier">
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="addMasterSupplier()" id="msAddBtn" class="btn btn-primary btn-sm">Add</button>
+            <button onclick="cancelEditMasterSupplier()" id="msCancelEditBtn" class="btn btn-ghost btn-sm hidden">Cancel</button>
+            <div class="flex-1"></div>
+            <input type="file" id="msImportFile" accept=".csv" style="display:none" onchange="handleMasterImport(this)">
+            <button onclick="document.getElementById('msImportFile').click()" class="btn btn-ghost btn-sm" title="Import CSV"><i class="fas fa-file-import mr-1"></i>Import CSV</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm mb-4">
+            <thead><tr class="bg-gray-50 border-b border-gray-200">
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">ID Supplier</th>
+              <th class="text-left px-3 py-2 font-semibold text-gray-600">Nama Supplier</th>
+              <th class="text-center px-3 py-2 font-semibold text-gray-600">Actions</th>
+            </tr></thead>
+            <tbody id="msTableBody"></tbody>
+          </table>
+        </div>
+        <div class="flex items-center justify-between" id="msPaginationBar">
+          <span class="pagination-info" id="msPaginationInfo">Showing 0 of 0</span>
+          <div class="flex gap-1" id="msPaginationButtons"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Summary Modal -->
   <div id="summaryModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
     <div class="modal-content w-full max-w-5xl">
       <div class="modal-header">
-        <h2><i class="fas fa-chart-pie mr-2 text-teal-600"></i>Supplier Summary</h2>
+        <div class="flex items-center gap-3">
+          <div class="modal-header-icon"><i class="fas fa-chart-pie"></i></div>
+          <h2>Supplier Summary</h2>
+        </div>
         <button onclick="closeSummaryModal()" class="modal-close"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <h3 class="text-sm font-semibold text-gray-600 mb-3"><i class="fas fa-tags mr-1.5 text-indigo-500"></i>Composition by Category</h3>
+          <div class="chart-card">
+            <h3 class="chart-title"><span class="chart-title-icon" style="background:var(--color-primary-light);color:var(--color-primary)"><i class="fas fa-tags"></i></span>Composition by Category</h3>
             <div class="relative" style="height:280px"><canvas id="chartCategory"></canvas></div>
           </div>
-          <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <h3 class="text-sm font-semibold text-gray-600 mb-3"><i class="fas fa-calendar-alt mr-1.5 text-green-500"></i>Composition by Last Transaction</h3>
+          <div class="chart-card">
+            <h3 class="chart-title"><span class="chart-title-icon" style="background:var(--color-accent-light);color:var(--color-accent)"><i class="fas fa-calendar-alt"></i></span>Composition by Last Transaction</h3>
             <div class="relative" style="height:280px"><canvas id="chartStatus"></canvas></div>
           </div>
-          <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <h3 class="text-sm font-semibold text-gray-600 mb-3"><i class="fas fa-map-marker-alt mr-1.5 text-red-500"></i>By District / City</h3>
+          <div class="chart-card">
+            <h3 class="chart-title"><span class="chart-title-icon" style="background:var(--color-danger-light);color:var(--color-danger)"><i class="fas fa-map-marker-alt"></i></span>By District / City</h3>
             <div class="relative" style="height:280px"><canvas id="chartLocation"></canvas><div id="locChartLoading" class="absolute inset-0 hidden items-center justify-center text-xs text-gray-400"></div></div>
           </div>
-          <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <h3 class="text-sm font-semibold text-gray-600 mb-3"><i class="fas fa-box mr-1.5 text-amber-500"></i>Top Products</h3>
+          <div class="chart-card">
+            <h3 class="chart-title"><span class="chart-title-icon" style="background:var(--color-warning-light);color:var(--color-warning)"><i class="fas fa-box"></i></span>Top Products</h3>
             <div class="relative" style="height:280px"><canvas id="chartProducts"></canvas></div>
           </div>
         </div>
@@ -342,7 +431,10 @@
   <div id="auditModal" class="modal-overlay hidden fixed inset-0 z-50 items-center justify-center p-4">
     <div class="modal-content w-full max-w-3xl">
       <div class="modal-header">
-        <h2><i class="fas fa-history mr-2 text-indigo-600"></i>Audit Log</h2>
+        <div class="flex items-center gap-3">
+          <div class="modal-header-icon"><i class="fas fa-history"></i></div>
+          <h2>Audit Log</h2>
+        </div>
         <button onclick="closeAuditModal()" class="modal-close"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body">
@@ -362,6 +454,6 @@
   </div>
 
 <script src="regions_id.js?v=2"></script>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>
