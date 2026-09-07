@@ -155,6 +155,29 @@ body {
 .login-card .login-input::placeholder {
   color: rgba(255,255,255,0.35);
 }
+.password-input-wrapper {
+  position: relative;
+}
+.password-input-wrapper .login-input {
+  padding-right: 2.75rem;
+}
+.password-toggle-btn {
+  position: absolute;
+  right: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  padding: 0.25rem;
+  font-size: 1rem;
+  transition: color 0.15s;
+  line-height: 1;
+}
+.password-toggle-btn:hover {
+  color: rgba(255,255,255,0.85);
+}
 .login-card .login-input:focus {
   outline: none;
   background: rgba(0,0,0,0.35);

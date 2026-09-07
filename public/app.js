@@ -127,6 +127,13 @@ function fromSupabase(r) {
 }
 
 // â”€â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function toggleLoginPassword() {
+  var f = $('loginPassword');
+  var show = f.type === 'password';
+  f.type = show ? 'text' : 'password';
+  $('loginPasswordToggleIcon').className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+}
+
 async function handleLogin() {
   if (!supabase) {
     $('loginError').textContent = 'Supabase is still loading. Please wait...';
