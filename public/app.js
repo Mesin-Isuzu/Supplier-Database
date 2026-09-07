@@ -514,7 +514,7 @@ function renderPagination(total, pages) {
   btns += '<button class="pagination-btn rounded-l-lg" onclick="goPage('+(currentPage-1)+')" '+(currentPage===1?'disabled':'')+'><i class="fas fa-chevron-left"></i></button>';
   for (var i = 1; i <= pages; i++) {
     if (pages > 7 && Math.abs(i - currentPage) > 2 && i !== 1 && i !== pages) {
-      if (i === currentPage - 3 || i === currentPage + 3) btns += '<button class="pagination-btn" disabled>â€¦</button>';
+      if (i === currentPage - 3 || i === currentPage + 3) btns += '<button class="pagination-btn" disabled><i class="fas fa-ellipsis-h"></i></button>';
       continue;
     }
     btns += '<button class="pagination-btn'+(i===currentPage?' active':'')+'" onclick="goPage('+i+')">'+i+'</button>';
