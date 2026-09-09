@@ -1545,19 +1545,17 @@ function closeCategoryModal() {
 
 function renderCategories() {
   var html = ALL_CATEGORIES.map(function(c) {
-    var bg = c.bg_color||'#f3e8ff', tx = c.text_color||'#5b21b6';
     var activeIcon = c.is_active
       ? '<i class="fas fa-toggle-on text-success text-lg"></i>'
       : '<i class="fas fa-toggle-off text-muted text-lg"></i>';
     return '<tr class="border-b border-gray-100">' +
       '<td class="px-3 py-2 text-sm font-medium">'+escHtml(c.name)+'</td>' +
-      '<td class="px-3 py-2"><span class="category-badge" style="background:'+bg+';color:'+tx+'">'+escHtml(c.name)+'</span></td>' +
       '<td class="px-3 py-2 text-center whitespace-nowrap">' +
         '<button onclick="toggleCategoryActive('+c.id+')" class="action-btn" title="Toggle active">'+activeIcon+'</button>' +
         '<button onclick="deleteCategory('+c.id+')" class="action-btn action-btn--delete" title="Delete"><i class="fas fa-trash"></i></button>' +
       '</td></tr>';
   }).join('');
-  $('categoryTableBody').innerHTML = html || '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 text-sm">No categories.</td></tr>';
+  $('categoryTableBody').innerHTML = html || '<tr><td colspan="2" class="px-3 py-4 text-center text-gray-400 text-sm">No categories.</td></tr>';
 }
 
 async function toggleCategoryActive(id) {
