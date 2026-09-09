@@ -890,6 +890,35 @@ textarea.form-input {
   overflow-wrap: anywhere;
 }
 
+/* Grid mini pemisah antar nilai pada kolom multi-value */
+.value-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(76px, auto));
+  gap: 4px;
+  justify-content: start;
+  width: 100%;
+}
+.value-chip {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  padding: 2px 8px;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.value-grid .category-badge,
+.value-grid .product-tag {
+  margin: 0;
+  justify-self: start;
+  max-width: 100%;
+}
+
 /* ─── Animations ────────────────────────────── */
 .fade-in {
   animation: fadeIn 0.2s ease-out;

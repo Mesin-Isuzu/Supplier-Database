@@ -475,9 +475,15 @@ function getFilteredSorted() {
   return list;
 }
 
+function valueChips(items) {
+  items = items.filter(function(x){ return x; });
+  if (!items.length) return '';
+  if (items.length === 1) return items[0];
+  return '<span class="value-grid">' + items.join('') + '</span>';
+}
+
 function render() {
   var list = getFilteredSorted();
-
   // Update sort icon
   document.querySelectorAll('.sort-icon').forEach(function(el){ el.classList.remove('active');
     el.className = el.className.replace('fa-sort-up','fa-sort').replace('fa-sort-down','fa-sort'); });
@@ -509,15 +515,26 @@ function render() {
   $('paginationBar').style.display = '';
 
   tbody.innerHTML = page.map(function(s) {
-    var cats = (s.categories||[]).map(function(c){
+    var catList = (s.categories||[]).map(function(c){
       var bg = CATEGORY_COLORS[c]||'#f3e8ff', tx = CATEGORY_TEXT_COLORS[c]||'#5b21b6';
       return '<span class="category-badge" style="background:'+bg+';color:'+tx+'">'+escHtml(c)+'</span>';
-    }).join('');
+    });
 
-    var prods = (s.products||[]).slice(0,3).map(function(p){
+    var prodList = (s.products||[]).slice(0,3).map(function(p){
       return '<span class="product-tag">'+escHtml(typeof p==='string'?p:p.name)+'</span>';
-    }).join('');
-    if ((s.products||[]).length > 3) prods += '<span class="product-tag">+'+(s.products.length-3)+' more</span>';
+    });
+    if ((s.products||[]).length > 3) prodList.push('<span class="product-tag">+'+(s.products.length-3)+' more</span>');
+
+    var cats = valueChips(catList);
+    var prods = valueChips(prodList);
+    var contacts = valueChips([
+      (s.contactPerson ? '<span class="value-chip">'+escHtml(s.contactPerson)+'</span>' : ''),
+      (s.contactPerson2 ? '<span class="value-chip">'+escHtml(s.contactPerson2)+'</span>' : '')
+    ]);
+    var phones = valueChips([
+      (s.phone ? '<span class="value-chip">'+escHtml(s.phone)+'</span>' : ''),
+      (s.phone2 ? '<span class="value-chip">'+escHtml(s.phone2)+'</span>' : '')
+    ]);
 
     var txnDate = s.lastTransactionDate ? new Date(s.lastTransactionDate).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'2-digit'}) : 'No transaction';
     var txnCls = s.lastTransactionDate ? 'status-badge txn-recent' : 'status-badge txn-old';
@@ -529,8 +546,8 @@ function render() {
     return '<tr class="table-row-hover">' +
       '<td class="px-4 py-3 cell-mono text-primary" data-label="ID">'+(s.idSupplier ? escHtml(s.idSupplier) : '\u2014')+'</td>' +
       '<td class="px-4 py-3 cell-company" data-label="Company">'+escHtml(s.companyName)+'</td>' +
-      '<td class="px-4 py-3 cell-muted" data-label="Contact">'+escHtml(s.contactPerson)+(s.contactPerson2?'<br>'+escHtml(s.contactPerson2):'')+'</td>' +
-      '<td class="px-4 py-3 cell-muted col-md" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br>'+escHtml(s.phone2):'')+'</td>' +
+      '<td class="px-4 py-3 cell-muted" data-label="Contact">'+contacts+'</td>' +
+      '<td class="px-4 py-3 cell-muted col-md" data-label="Phone">'+phones+'</td>' +
       '<td class="px-4 py-3 cell-muted" data-label="Address">'+(s.address?escHtml(s.address):'\u2014')+'</td>' +
       '<td class="px-4 py-3" data-label="Categories">'+cats+'</td>' +
       '<td class="px-4 py-3" data-label="Products">'+prods+'</td>' +
