@@ -531,6 +531,7 @@ function render() {
       '<td class="px-4 py-3 cell-company" data-label="Company">'+escHtml(s.companyName)+'</td>' +
       '<td class="px-4 py-3 cell-muted" data-label="Contact">'+escHtml(s.contactPerson)+(s.contactPerson2?'<br>'+escHtml(s.contactPerson2):'')+'</td>' +
       '<td class="px-4 py-3 cell-muted col-md" data-label="Phone">'+escHtml(s.phone)+(s.phone2?'<br>'+escHtml(s.phone2):'')+'</td>' +
+      '<td class="px-4 py-3 cell-muted" data-label="Address">'+(s.address?escHtml(s.address):'\u2014')+'</td>' +
       '<td class="px-4 py-3" data-label="Categories">'+cats+'</td>' +
       '<td class="px-4 py-3" data-label="Products">'+prods+'</td>' +
       '<td class="px-4 py-3 text-center md:text-center" data-label="Status"><span class="'+txnCls+'">'+txnDate+'</span></td>' +
