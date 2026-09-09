@@ -1527,6 +1527,7 @@ function closeUserModal() {
 
 // ─── Manage Categories ──────────────────────────────────
 var ALL_CATEGORIES = [];
+var EDITING_CATEGORY_ID = null;
 
 async function openManageCategories() {
   $('categoryModal').classList.remove('hidden');
@@ -1541,6 +1542,9 @@ function closeCategoryModal() {
   $('categoryModal').classList.add('hidden');
   $('categoryModal').classList.remove('flex');
   $('fCategoryName').value = '';
+  EDITING_CATEGORY_ID = null;
+  $('saveCategoryBtn').innerHTML = '<i class="fas fa-plus mr-1"></i>Add Category';
+  $('addCategoryTitle').textContent = 'Add Category';
 }
 
 function renderCategories() {
@@ -1551,6 +1555,7 @@ function renderCategories() {
     return '<tr class="border-b border-gray-100">' +
       '<td class="px-3 py-2 text-sm font-medium">'+escHtml(c.name)+'</td>' +
       '<td class="px-3 py-2 text-center whitespace-nowrap">' +
+        '<button onclick="editCategory('+c.id+')" class="action-btn" title="Edit"><i class="fas fa-pencil-alt"></i></button>' +
         '<button onclick="toggleCategoryActive('+c.id+')" class="action-btn" title="Toggle active">'+activeIcon+'</button>' +
         '<button onclick="deleteCategory('+c.id+')" class="action-btn action-btn--delete" title="Delete"><i class="fas fa-trash"></i></button>' +
       '</td></tr>';
@@ -1570,6 +1575,53 @@ async function toggleCategoryActive(id) {
   await loadCategories();
   render();
   showToast('Category ' + (newVal ? 'activated' : 'deactivated') + '.', 'success');
+}
+
+function editCategory(id) {
+  var cat = ALL_CATEGORIES.find(function(c){ return c.id === id; });
+  if (!cat) return;
+  EDITING_CATEGORY_ID = id;
+  $('fCategoryName').value = cat.name;
+  $('addCategoryTitle').textContent = 'Edit Category';
+  $('saveCategoryBtn').innerHTML = '<i class="fas fa-save mr-1"></i>Update Category';
+  $('fCategoryName').focus();
+}
+
+function saveCategory() {
+  if (EDITING_CATEGORY_ID) {
+    updateCategory(EDITING_CATEGORY_ID);
+  } else {
+    addCategory();
+  }
+}
+
+async function updateCategory(id) {
+  var name = $('fCategoryName').value.trim();
+  if (!name) { showToast('Please enter a category name.', 'error'); return; }
+  if (ALL_CATEGORIES.some(function(c){ return c.id !== id && c.name.toLowerCase()===name.toLowerCase(); })) {
+    showToast('Category already exists.', 'error'); return;
+  }
+  showLoading();
+  var { data, error } = await supabase
+    .from('categories')
+    .update({ name: name })
+    .eq('id', id)
+    .select()
+    .single();
+  hideLoading();
+  if (error) { showToast('Error updating category: ' + error.message, 'error'); return; }
+  var idx = ALL_CATEGORIES.findIndex(function(c){ return c.id === id; });
+  if (idx >= 0) ALL_CATEGORIES[idx] = data;
+  EDITING_CATEGORY_ID = null;
+  $('fCategoryName').value = '';
+  $('addCategoryTitle').textContent = 'Add Category';
+  $('saveCategoryBtn').innerHTML = '<i class="fas fa-plus mr-1"></i>Add Category';
+  // reload active categories for dashboard
+  await loadCategories();
+  populateCategoryFilter();
+  render();
+  renderCategories();
+  showToast('Category updated.', 'success');
 }
 
 async function addCategory() {
